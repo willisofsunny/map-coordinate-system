@@ -283,7 +283,7 @@ class MapCoordinateSystem {
             }
             
             if (!coordinates) {
-                this.showError(`無法找到地址"${address}"\n\n🔍 建議嘗試：\n• 台北101\n• 北京天安門\n• 東京塔\n• 香港中環\n• New York Times Square\n• London Big Ben\n\n💡 輸入提示：\n• 使用具體的地標名稱\n• 包含城市名稱\n• 嘗試中文或英文\n• 避免使用縮寫`);
+                this.showError(`無法找到地址"${address}"\n\n🔍 台灣地址建議格式：\n• 台北101\n• 新北市板橋區\n• 台中市西屯區文心路\n• 高雄市前金區中正四路\n• 台南火車站\n\n🌍 國際地址範例：\n• 北京天安門\n• 東京塔\n• New York Times Square\n• London Big Ben\n\n💡 輸入提示：\n• 台灣地址：從縣市開始，逐步縮小範圍\n• 如果詳細地址找不到，嘗試只輸入區域\n• 可以嘗試地標名稱\n• 避免過於詳細的門牌號碼`);
                 return;
             }
 
@@ -310,40 +310,153 @@ class MapCoordinateSystem {
     }
 
     /**
-     * 簡化版地理編碼 - 使用最基本的API調用
+     * 台灣地址格式化和清理
+     * @param {string} address 原始地址
+     * @returns {Array<string>} 格式化後的地址變體
+     */
+    formatTaiwanAddress(address) {
+        const variants = [];
+        
+        // 原始地址
+        variants.push(address);
+        
+        // 台灣地址清理和格式化
+        let cleanAddress = address;
+        
+        // 移除可能影響查詢的字符
+        cleanAddress = cleanAddress.replace(/[,，]/g, ' ');
+        cleanAddress = cleanAddress.replace(/\s+/g, ' ').trim();
+        
+        // 台灣地址層級簡化版本
+        if (address.includes('台灣') || address.includes('臺灣')) {
+            // 移除"台灣"/"臺灣"前綴
+            let withoutCountry = address.replace(/^(台灣|臺灣)(省)?/, '').trim();
+            if (withoutCountry !== address) {
+                variants.push(withoutCountry);
+            }
+        }
+        
+        // 台灣地址的逐步簡化
+        const taiwanPatterns = [
+            // 縣市 + 區 + 路段 + 巷弄 + 號
+            /^(.+?[縣市])(.+?[區市鎮鄉])(.+?[路街道])(.+?段)?(.+?巷)?(.+?弄)?(.+?號)/,
+            // 縣市 + 區 + 路段
+            /^(.+?[縣市])(.+?[區市鎮鄉])(.+?[路街道])(.+?段)?/,
+            // 縣市 + 區
+            /^(.+?[縣市])(.+?[區市鎮鄉])/
+        ];
+        
+        for (const pattern of taiwanPatterns) {
+            const match = address.match(pattern);
+            if (match) {
+                // 完整匹配
+                variants.push(match[0]);
+                
+                // 縣市 + 區域
+                if (match[1] && match[2]) {
+                    variants.push(match[1] + match[2]);
+                }
+                
+                // 添加Taiwan前綴
+                variants.push('Taiwan ' + match[0]);
+                variants.push('台灣 ' + match[0]);
+                
+                break;
+            }
+        }
+        
+        // 如果包含新北市，添加特殊處理
+        if (address.includes('新北市')) {
+            const newTaipeiVariant = address.replace('新北市', 'New Taipei City');
+            variants.push(newTaipeiVariant);
+            variants.push('New Taipei, Taiwan ' + address.replace('新北市', ''));
+        }
+        
+        // 添加英文縣市對照
+        const cityMapping = {
+            '台北市': 'Taipei',
+            '臺北市': 'Taipei', 
+            '新北市': 'New Taipei',
+            '桃園市': 'Taoyuan',
+            '台中市': 'Taichung',
+            '臺中市': 'Taichung',
+            '台南市': 'Tainan',
+            '臺南市': 'Tainan',
+            '高雄市': 'Kaohsiung',
+            '基隆市': 'Keelung',
+            '新竹市': 'Hsinchu',
+            '嘉義市': 'Chiayi'
+        };
+        
+        for (const [chinese, english] of Object.entries(cityMapping)) {
+            if (address.includes(chinese)) {
+                variants.push(address.replace(chinese, english + ', Taiwan'));
+                variants.push(english + ', Taiwan');
+            }
+        }
+        
+        // 去重並返回
+        return [...new Set(variants)];
+    }
+
+    /**
+     * 簡化版地理編碼 - 使用最基本的API調用，針對台灣地址優化
      * @param {string} address 地址
      * @returns {Promise<Object>} 座標信息
      */
     async simpleGeocode(address) {
         try {
-            this.log('嘗試簡化版地理編碼...');
+            this.log('開始簡化版地理編碼...');
             
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`;
+            // 生成多個地址變體
+            const addressVariants = this.formatTaiwanAddress(address);
+            this.log('地址變體:', addressVariants);
             
-            this.log(`簡化版URL: ${url}`);
-            
-            const response = await fetch(url, {
-                method: 'GET',
-                cache: 'default'
-            });
+            // 針對每個變體嘗試查詢
+            for (let i = 0; i < addressVariants.length; i++) {
+                const variant = addressVariants[i];
+                
+                try {
+                    this.log(`嘗試地址變體 ${i + 1}/${addressVariants.length}: ${variant}`);
+                    
+                    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(variant)}&limit=3&countrycodes=tw&accept-language=zh-TW,zh,en`;
+                    
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: {
+                            'User-Agent': 'MapCoordinateSystem/1.0'
+                        },
+                        cache: 'default'
+                    });
 
-            this.log(`簡化版響應狀態: ${response.status}`);
+                    if (!response.ok) {
+                        this.log(`變體 ${i + 1} HTTP錯誤: ${response.status}`);
+                        continue;
+                    }
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
+                    const data = await response.json();
+                    this.log(`變體 ${i + 1} 響應:`, data);
 
-            const data = await response.json();
-            this.log('簡化版響應數據:', data);
-
-            if (data && Array.isArray(data) && data.length > 0) {
-                const result = data[0];
-                if (result.lat && result.lon) {
-                    return {
-                        lng: parseFloat(result.lon),
-                        lat: parseFloat(result.lat),
-                        displayAddress: result.display_name || address
-                    };
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        const result = data[0];
+                        if (result.lat && result.lon) {
+                            this.log(`變體 ${i + 1} 查詢成功!`);
+                            return {
+                                lng: parseFloat(result.lon),
+                                lat: parseFloat(result.lat),
+                                displayAddress: result.display_name || variant
+                            };
+                        }
+                    }
+                    
+                    // 添加短暫延遲避免過於頻繁請求
+                    if (i < addressVariants.length - 1) {
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                    
+                } catch (error) {
+                    this.log(`變體 ${i + 1} 查詢失敗:`, error.message);
+                    continue;
                 }
             }
 
@@ -355,17 +468,52 @@ class MapCoordinateSystem {
     }
 
     /**
-     * 地理編碼 - 根據地址獲取座標
+     * 地理編碼 - 根據地址獲取座標，針對台灣地址優化
      * @param {string} address 地址
      * @returns {Promise<Object>} 座標信息
      */
     async geocodeAddress(address) {
-        // 多個地理編碼API服務
-        const apis = [
-            // API 1: OpenStreetMap Nominatim (主要)
+        // 生成地址變體
+        const addressVariants = this.formatTaiwanAddress(address);
+        this.log('完整版地理編碼 - 地址變體:', addressVariants);
+        
+        // 針對台灣地址優化的多個地理編碼API服務
+        const createApiConfigs = (searchAddress) => [
+            // API 1: 台灣專用 - 限制台灣地區
             {
-                name: 'OpenStreetMap Primary',
-                url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&accept-language=zh-TW,zh,en&addressdetails=1&bounded=0&dedupe=0`,
+                name: 'Taiwan Specific',
+                url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=5&countrycodes=tw&accept-language=zh-TW,zh&addressdetails=1&extratags=1`,
+                headers: {
+                    'User-Agent': 'MapCoordinateSystem/1.0',
+                    'Accept': 'application/json'
+                },
+                parser: (data) => {
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        // 優先選擇台灣的結果
+                        for (const result of data) {
+                            if (result.display_name && result.display_name.includes('台灣')) {
+                                return {
+                                    lng: parseFloat(result.lon),
+                                    lat: parseFloat(result.lat),
+                                    displayAddress: result.display_name
+                                };
+                            }
+                        }
+                        // 如果沒有明確標示台灣的，選第一個
+                        const result = data[0];
+                        return {
+                            lng: parseFloat(result.lon),
+                            lat: parseFloat(result.lat),
+                            displayAddress: result.display_name
+                        };
+                    }
+                    return null;
+                }
+            },
+            // API 2: 亞洲地區優先
+            {
+                name: 'Asia Priority',
+                url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=3&countrycodes=tw,cn,hk,mo,jp,kr&accept-language=zh-TW,zh,en&addressdetails=1`,
                 headers: {
                     'User-Agent': 'MapCoordinateSystem/1.0',
                     'Accept': 'application/json'
@@ -382,10 +530,10 @@ class MapCoordinateSystem {
                     return null;
                 }
             },
-            // API 2: 專門針對亞洲地區
+            // API 3: 結構化查詢
             {
-                name: 'OpenStreetMap Asia',
-                url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=3&countrycodes=tw,cn,hk,mo,jp,kr,sg,my,th,ph&accept-language=zh,en`,
+                name: 'Structured Search',
+                url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&polygon_geojson=0&addressdetails=1&limit=2&accept-language=zh-TW,zh&dedupe=1`,
                 headers: {
                     'User-Agent': 'MapCoordinateSystem/1.0',
                     'Accept': 'application/json'
@@ -402,10 +550,10 @@ class MapCoordinateSystem {
                     return null;
                 }
             },
-            // API 3: 使用不同的查詢參數
+            // API 4: 全球搜索作為最後備案
             {
-                name: 'OpenStreetMap Detailed',
-                url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&polygon_geojson=0&addressdetails=1&limit=1&accept-language=zh-TW`,
+                name: 'Global Fallback',
+                url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchAddress)}&limit=3&accept-language=zh-TW,zh,en&addressdetails=1`,
                 headers: {
                     'User-Agent': 'MapCoordinateSystem/1.0',
                     'Accept': 'application/json'
@@ -425,74 +573,105 @@ class MapCoordinateSystem {
         ];
 
         let lastError = null;
+        let bestResult = null;
 
-        for (let i = 0; i < apis.length; i++) {
-            const api = apis[i];
-            try {
-                this.log(`嘗試使用 ${api.name} 進行地理編碼... (${i + 1}/${apis.length})`);
-                
-                // 添加延遲，避免過於頻繁的請求
-                if (i > 0) {
-                    await new Promise(resolve => setTimeout(resolve, 800));
-                }
-
-                const requestOptions = {
-                    method: 'GET',
-                    headers: api.headers,
-                    cache: 'default',
-                    redirect: 'follow'
-                };
-
-                this.log(`請求URL: ${api.url}`);
-
-                const response = await fetch(api.url, requestOptions);
-                
-                this.log(`${api.name} 響應狀態: ${response.status} ${response.statusText}`);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP錯誤: ${response.status} ${response.statusText}`);
-                }
-
-                const contentType = response.headers.get('content-type');
-                this.log(`Content-Type: ${contentType}`);
-
-                let data;
-                if (contentType && contentType.includes('application/json')) {
-                    data = await response.json();
-                } else {
-                    const text = await response.text();
-                    this.log(`非JSON響應內容: ${text.substring(0, 200)}...`);
-                    try {
-                        data = JSON.parse(text);
-                    } catch (e) {
-                        throw new Error('響應不是有效的JSON格式');
+        // 嘗試每個地址變體
+        for (let variantIndex = 0; variantIndex < addressVariants.length; variantIndex++) {
+            const variant = addressVariants[variantIndex];
+            this.log(`\n=== 嘗試地址變體 ${variantIndex + 1}/${addressVariants.length}: "${variant}" ===`);
+            
+            const apis = createApiConfigs(variant);
+            
+            // 對於每個變體，嘗試所有API
+            for (let i = 0; i < apis.length; i++) {
+                const api = apis[i];
+                try {
+                    this.log(`  ${api.name} (${i + 1}/${apis.length})`);
+                    
+                    // 添加延遲，避免過於頻繁的請求
+                    if (i > 0 || variantIndex > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 600));
                     }
+
+                    const requestOptions = {
+                        method: 'GET',
+                        headers: api.headers,
+                        cache: 'default',
+                        redirect: 'follow'
+                    };
+
+                    this.log(`  請求URL: ${api.url}`);
+
+                    const response = await fetch(api.url, requestOptions);
+                    
+                    this.log(`  ${api.name} 響應狀態: ${response.status} ${response.statusText}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP錯誤: ${response.status} ${response.statusText}`);
+                    }
+
+                    const contentType = response.headers.get('content-type');
+                    this.log(`  Content-Type: ${contentType}`);
+
+                    let data;
+                    if (contentType && contentType.includes('application/json')) {
+                        data = await response.json();
+                    } else {
+                        const text = await response.text();
+                        this.log(`  非JSON響應內容: ${text.substring(0, 200)}...`);
+                        try {
+                            data = JSON.parse(text);
+                        } catch (e) {
+                            throw new Error('響應不是有效的JSON格式');
+                        }
+                    }
+
+                    this.log(`  ${api.name} 響應數據:`, data);
+                    
+                    if (data && data.error) {
+                        throw new Error(`API錯誤: ${data.error}`);
+                    }
+
+                    const result = api.parser(data);
+                    if (result && result.lat && result.lng) {
+                        this.log(`  ✅ ${api.name} 解析成功:`, result);
+                        
+                        // 如果是台灣專用API或結果包含台灣，立即返回
+                        if (api.name === 'Taiwan Specific' || 
+                            (result.displayAddress && result.displayAddress.includes('台灣'))) {
+                            return result;
+                        }
+                        
+                        // 否則保存為備選結果
+                        if (!bestResult) {
+                            bestResult = result;
+                        }
+                    }
+
+                    this.log(`  ${api.name} 未找到有效結果`);
+
+                } catch (error) {
+                    lastError = error;
+                    this.log(`  ❌ ${api.name} 地理編碼失敗:`, error.message);
+                    continue;
                 }
-
-                this.log(`${api.name} 響應數據:`, data);
-                
-                if (data && data.error) {
-                    throw new Error(`API錯誤: ${data.error}`);
-                }
-
-                const result = api.parser(data);
-                if (result && result.lat && result.lng) {
-                    this.log(`${api.name} 解析成功:`, result);
-                    return result;
-                }
-
-                this.log(`${api.name} 未找到有效結果`);
-
-            } catch (error) {
-                lastError = error;
-                this.log(`${api.name} 地理編碼失敗:`, error.message);
-                console.error(`${api.name} 地理編碼失敗:`, error);
-                continue;
+            }
+            
+            // 如果找到了最佳結果，可以提前返回
+            if (bestResult && variantIndex >= 2) {
+                this.log('提前返回最佳結果:', bestResult);
+                return bestResult;
             }
         }
 
+        // 如果有備選結果，返回它
+        if (bestResult) {
+            this.log('返回備選結果:', bestResult);
+            return bestResult;
+        }
+
         // 所有API都失敗了，拋出最後一個錯誤
-        this.log('所有地理編碼API都失敗了');
+        this.log('所有地理編碼嘗試都失敗了');
         if (lastError) {
             throw lastError;
         }

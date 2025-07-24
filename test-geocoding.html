@@ -55,8 +55,25 @@
         <p>這個工具用來測試不同的地理編碼API服務，幫助診斷地址查詢問題。</p>
 
         <div class="test-item">
-            <h3>測試地址清單</h3>
+            <h3>台灣詳細地址測試</h3>
+            <button onclick="testAddress('新北市新店區北宜路二段421巷2弄43號')">新北市新店區北宜路二段421巷2弄43號</button>
+            <button onclick="testAddress('台北市信義區信義路五段7號')">台北市信義區信義路五段7號</button>
+            <button onclick="testAddress('新北市板橋區縣民大道二段7號')">新北市板橋區縣民大道二段7號</button>
+            <button onclick="testAddress('台中市西屯區文心路二段201號')">台中市西屯區文心路二段201號</button>
+        </div>
+
+        <div class="test-item">
+            <h3>台灣區域和地標測試</h3>
             <button onclick="testAddress('台北101')">台北101</button>
+            <button onclick="testAddress('新北市新店區')">新北市新店區</button>
+            <button onclick="testAddress('台北市信義區')">台北市信義區</button>
+            <button onclick="testAddress('台中市西屯區')">台中市西屯區</button>
+            <button onclick="testAddress('台北車站')">台北車站</button>
+            <button onclick="testAddress('西門町')">西門町</button>
+        </div>
+
+        <div class="test-item">
+            <h3>國際地址測試</h3>
             <button onclick="testAddress('北京天安門')">北京天安門</button>
             <button onclick="testAddress('東京塔')">東京塔</button>
             <button onclick="testAddress('香港中環')">香港中環</button>
@@ -116,20 +133,58 @@
             addResult(address, 'loading', null);
             console.log(`開始測試地址: ${address}`);
 
+            // 生成地址變體（簡化版本）
+            function formatTaiwanAddress(address) {
+                const variants = [address];
+                
+                // 台灣地址簡化
+                if (address.includes('新北市')) {
+                    variants.push(address.replace('新北市', 'New Taipei City'));
+                    variants.push('New Taipei, Taiwan ' + address.replace('新北市', ''));
+                }
+                
+                // 縣市英文對照
+                const cityMapping = {
+                    '台北市': 'Taipei',
+                    '新北市': 'New Taipei',
+                    '台中市': 'Taichung',
+                    '高雄市': 'Kaohsiung'
+                };
+                
+                for (const [chinese, english] of Object.entries(cityMapping)) {
+                    if (address.includes(chinese)) {
+                        variants.push(address.replace(chinese, english + ', Taiwan'));
+                    }
+                }
+                
+                return [...new Set(variants)];
+            }
+            
+            const addressVariants = formatTaiwanAddress(address);
+            console.log('測試地址變體:', addressVariants);
+            
             const apis = [
                 {
-                    name: 'OpenStreetMap Primary',
-                    url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&accept-language=zh-TW,zh,en&addressdetails=1&bounded=0&dedupe=0`,
+                    name: 'Taiwan Specific',
+                    url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&countrycodes=tw&accept-language=zh-TW,zh&addressdetails=1&extratags=1`,
                 },
                 {
-                    name: 'OpenStreetMap Alternative',
-                    url: `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(address)}&limit=3&accept-language=zh,en&addressdetails=1`,
+                    name: 'Asia Priority',
+                    url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=3&countrycodes=tw,cn,hk,mo,jp,kr&accept-language=zh-TW,zh,en&addressdetails=1`,
                 },
                 {
-                    name: 'OpenStreetMap Asia',
-                    url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=3&countrycodes=tw,cn,hk,mo,jp,kr,sg,my,th,ph&accept-language=zh,en`,
+                    name: 'Global Search',
+                    url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=3&accept-language=zh-TW,zh,en&addressdetails=1`,
                 }
             ];
+            
+            // 為每個地址變體創建額外的API調用
+            for (const variant of addressVariants.slice(1)) {
+                apis.push({
+                    name: `Variant: ${variant.substring(0, 30)}...`,
+                    url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(variant)}&limit=3&countrycodes=tw&accept-language=zh-TW,zh,en`,
+                });
+            }
 
             let success = false;
             let lastError = null;
