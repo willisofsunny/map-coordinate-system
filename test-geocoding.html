@@ -140,11 +140,12 @@
         </div>
 
         <div class="test-item" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white;">
-            <h3><i class="fab fa-google"></i> Google Maps 超高精度測試</h3>
+            <h3><i class="fab fa-google"></i> Geocoding API 直接查詢測試</h3>
             <button onclick="testAddress('新北市新店區北宜路二段421巷2弄43號')" style="background: rgba(255,255,255,0.9); color: #333;">超詳細門牌號測試</button>
             <button onclick="testAddress('台北市信義區信義路五段7號89樓')" style="background: rgba(255,255,255,0.9); color: #333;">台北101樓層測試</button>
             <button onclick="testAddress('新北市板橋區縣民大道二段7號')" style="background: rgba(255,255,255,0.9); color: #333;">板橋車站精確測試</button>
-            <button onclick="testGoogleMapsDirectly()" style="background: #ff6b6b; color: white; font-weight: bold;">🎯 直接測試Google Maps API</button>
+            <button onclick="testAddress('台北101')" style="background: rgba(255,255,255,0.9); color: #333;">地標直接查詢</button>
+            <button onclick="testGoogleMapsDirectly()" style="background: #ff6b6b; color: white; font-weight: bold;">🎯 Geocoding API測試</button>
         </div>
 
         <div class="test-item">
@@ -317,10 +318,10 @@
 
         async function testGoogleMapsDirectly() {
             const testAddress = '新北市新店區北宜路二段421巷2弄43號';
-            const apiKey = 'CI3loKQXylsWgA9NoZtXVPLeBJA=';
+            const apiKey = 'AIzaSyCwJDNIxdoPHzsk_-YI-JUJKdXa96bi0gc';
             
-            addResult('🎯 Google Maps Direct Test', 'loading', null);
-            console.log('🚀 直接測試Google Maps API...');
+            addResult('🎯 Geocoding API Direct Test', 'loading', null);
+            console.log('🚀 直接測試Geocoding API...');
 
             try {
                 const params = new URLSearchParams({
@@ -351,7 +352,7 @@
                     };
 
                     const resultText = `
-🎯 Google Maps 超高精度結果:
+🎯 Geocoding API 直接查詢結果:
 📍 位置類型: ${result.geometry.location_type}
 📍 座標: ${coordinates.lat}, ${coordinates.lng}
 📍 地址: ${result.formatted_address}
@@ -359,15 +360,15 @@
 📍 類型: ${result.types.join(', ')}
                     `;
 
-                    addResult('🎯 Google Maps Direct Test', 'success', coordinates, resultText);
+                    addResult('🎯 Geocoding API Direct Test', 'success', coordinates, resultText);
                 } else {
-                    const errorMsg = `Google Maps API錯誤: ${data.status} - ${data.error_message || '未知錯誤'}`;
-                    addResult('🎯 Google Maps Direct Test', 'error', null, errorMsg);
+                    const errorMsg = `Geocoding API錯誤: ${data.status} - ${data.error_message || '未知錯誤'}`;
+                    addResult('🎯 Geocoding API Direct Test', 'error', null, errorMsg);
                 }
 
             } catch (error) {
-                console.error('Google Maps API測試失敗:', error);
-                addResult('🎯 Google Maps Direct Test', 'error', null, `網絡錯誤: ${error.message}`);
+                console.error('Geocoding API測試失敗:', error);
+                addResult('🎯 Geocoding API Direct Test', 'error', null, `網絡錯誤: ${error.message}`);
             }
         }
 

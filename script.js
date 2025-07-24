@@ -32,7 +32,7 @@ class MapCoordinateSystem {
             const apiStatusElement = document.getElementById('api-status');
             if (apiStatusElement) {
                 apiStatusElement.style.display = 'inline-block';
-                this.log('🚀 Google Maps 超高精度模式已啟動');
+                this.log('🚀 Geocoding API 直接查詢模式已啟動');
                 
                 // 3秒後淡出動畫
                 setTimeout(() => {
@@ -40,6 +40,40 @@ class MapCoordinateSystem {
                 }, 3000);
             }
         }
+    }
+
+    /**
+     * Google Maps查詢失敗時的專用錯誤處理
+     */
+    showGoogleMapsError(address) {
+        this.showError(
+            `Geocoding API 無法找到地址"${address}"`,
+            `
+            🎯 <strong>Geocoding API 直接查詢建議：</strong>
+            
+            📍 <strong>地址格式優化：</strong>
+            • 完整格式：縣市 + 區 + 路段 + 號碼
+            • 範例：新北市新店區北宜路二段421號
+            • 避免：巷弄、樓層等過細節信息
+            
+            🏢 <strong>建築物查詢：</strong>
+            • 使用建築物名稱：台北101、總統府
+            • 商場名稱：新光三越、京站
+            • 學校醫院：台大醫院、師大
+            
+            🚊 <strong>交通地標：</strong>
+            • 車站：台北車站、板橋車站
+            • 捷運站：忠孝復興站、市政府站
+            • 機場：松山機場、桃園機場
+            
+            💡 <strong>搜索策略：</strong>
+            • 先嘗試主要道路，再細化到巷弄
+            • 使用GPS級精度的知名地點
+            • 中英文地名皆可支援
+            
+            🔄 系統已自動嘗試備用查詢方案...
+            `
+        );
     }
 
     /**
@@ -53,15 +87,16 @@ class MapCoordinateSystem {
                     `
                     <div style="text-align: left; margin: 20px 0;">
                         <h3 style="color: #4285f4; margin-bottom: 15px;">
-                            <i class="fab fa-google"></i> Google Maps 超高精度模式已啟動
+                            <i class="fab fa-google"></i> Geocoding API 直接查詢模式已啟動
                         </h3>
                         <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                            <h4 style="color: #333; margin-bottom: 10px;">🚀 新功能亮點：</h4>
+                            <h4 style="color: #333; margin-bottom: 10px;">🚀 核心功能：</h4>
                             <ul style="margin-left: 20px; color: #555;">
-                                <li><strong>ROOFTOP級精度：</strong>精確到建築物屋頂位置</li>
-                                <li><strong>門牌號補間：</strong>智能估算詳細門牌號位置</li>
-                                <li><strong>台灣優化：</strong>專門針對台灣地址結構優化</li>
-                                <li><strong>多API融合：</strong>結合多個API獲得最佳結果</li>
+                                <li><strong>🎯 直接查詢：</strong>優先調用Geocoding API獲取座標</li>
+                                <li><strong>📍 ROOFTOP級精度：</strong>精確到建築物屋頂位置</li>
+                                <li><strong>🇹🇼 台灣專用：</strong>專門針對台灣地址優化配置</li>
+                                <li><strong>🔄 智能備用：</strong>失敗時自動啟用補間算法</li>
+                                <li><strong>⚡ 快速響應：</strong>直接獲取Google座標結果</li>
                             </ul>
                         </div>
                         <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 15px 0;">
@@ -338,10 +373,16 @@ class MapCoordinateSystem {
             const addressPreprocessing = this.preprocessCommonAddressPatterns(address);
             this.log('地址預處理結果:', addressPreprocessing);
             
-            // 使用高級地址補間系統
-            let coordinates = await this.advancedAddressGeocode(address);
+            // 優先使用Google Maps API直接查詢
+            let coordinates = await this.directGoogleMapsGeocode(address);
             
-            // 如果高級系統失敗，嘗試完整版本
+            // 如果Google Maps失敗，使用高級地址補間系統作為備用
+            if (!coordinates) {
+                this.log('Google Maps查詢失敗，使用高級系統...');
+                coordinates = await this.advancedAddressGeocode(address);
+            }
+            
+            // 如果高級系統也失敗，嘗試完整版本
             if (!coordinates) {
                 this.log('高級系統失敗，嘗試完整版本...');
                 coordinates = await this.geocodeAddress(address);
@@ -354,33 +395,8 @@ class MapCoordinateSystem {
             }
             
             if (!coordinates) {
-                const analysis = this.parseDetailedTaiwanAddress(address);
-                let customSuggestions = '';
-                
-                if (analysis.isDetailed) {
-                    customSuggestions = `\n\n🎯 針對您輸入地址的建議：\n`;
-                    
-                    if (analysis.roadLevel) {
-                        customSuggestions += `• 嘗試：${analysis.roadLevel}\n`;
-                    }
-                    if (analysis.districtLevel) {
-                        customSuggestions += `• 嘗試：${analysis.districtLevel}\n`;
-                    }
-                    if (analysis.cityLevel) {
-                        customSuggestions += `• 嘗試：${analysis.cityLevel}\n`;
-                    }
-                    
-                    customSuggestions += `• 或搜索：${analysis.district || analysis.city} + 知名地標\n`;
-                    
-                    if (analysis.houseNumber) {
-                        customSuggestions += `\n💡 詳細門牌號 "${analysis.houseNumber}" 可能未被地圖收錄`;
-                    }
-                    if (analysis.alley || analysis.lane) {
-                        customSuggestions += `\n💡 小巷弄資料可能不完整，建議使用主要道路`;
-                    }
-                }
-                
-                this.showError(`無法找到地址"${address}"${customSuggestions}\n\n🎯 **智能地址建議**\n\n🏛️ **地標建築**：\n• 台北101、故宮、中正紀念堂\n• 總統府、國父紀念館、龍山寺\n• 九份、淡水、日月潭\n\n🚊 **交通樞紐**：\n• 台北車站、板橋車站、桃園機場\n• 忠孝復興、市政府站、松山機場\n• 台中高鐵、高雄車站\n\n🏫 **教育機構**：\n• 台大、師大、政大、清大、成大\n• 輔大、淡江、世新、建中、北一女\n\n🏥 **醫療機構**：\n• 台大醫院、榮總、長庚、馬偕\n• 亞東醫院、慈濟醫院\n\n🏢 **商業中心**：\n• 信義商圈、東區、西門町、公館\n• 師大夜市、士林夜市、新光三越\n\n📍 **標準地址格式**：\n• 新北市新店區北宜路二段\n• 台北市信義區信義路五段\n• 台中市西屯區文心路\n• 高雄市前金區中正四路\n\n📝 **簡寫支持**：\n• 忠孝 → 忠孝東路/忠孝西路\n• 中山 → 中山路/中山北路/中山南路\n• 北車 → 台北車站\n• 東區 → 忠孝東路商圈\n\n🌐 **英文地址**：\n• Taipei 101\n• Taiwan University\n• Taichung Station\n\n💡 **搜索策略**：\n• 從完整地址→主要道路→區域→地標\n• 詳細門牌號找不到時嘗試路段級\n• 使用知名建築物或地標名稱\n• 支持中英文混合輸入`);
+                // 使用Google Maps專用錯誤提示
+                this.showGoogleMapsError(address);
                 return;
             }
 
@@ -2446,6 +2462,73 @@ class MapCoordinateSystem {
     }
 
     /**
+     * 直接Google Maps地址查詢 - 優先調用
+     */
+    async directGoogleMapsGeocode(address) {
+        const apiKey = this.getGoogleMapsApiKey();
+        if (!apiKey) {
+            this.log('Google Maps API密鑰未配置，跳過直接查詢');
+            return null;
+        }
+
+        try {
+            this.log('🚀 Google Maps 直接查詢:', address);
+            
+            const params = new URLSearchParams({
+                address: address,
+                key: apiKey,
+                region: 'tw',
+                language: 'zh-TW',
+                components: 'country:TW',
+                result_type: 'street_address|premise|subpremise|route|neighborhood|sublocality',
+                location_type: 'ROOFTOP|RANGE_INTERPOLATED|GEOMETRIC_CENTER|APPROXIMATE',
+                bounds: '21.8,119.3|25.4,122.1'
+            });
+
+            const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.log('📍 Google Maps 直接查詢響應:', data);
+
+            if (data.status === 'OK' && data.results && data.results.length > 0) {
+                const result = data.results[0];
+                const coordinates = {
+                    lng: result.geometry.location.lng,
+                    lat: result.geometry.location.lat,
+                    displayAddress: result.formatted_address,
+                    confidence: this.calculateGoogleMapsConfidence(result),
+                    source: 'Google Maps 直接查詢',
+                    locationType: result.geometry.location_type,
+                    addressComponents: result.address_components,
+                    types: result.types,
+                    placeId: result.place_id,
+                    rawData: result,
+                    isGoogleMaps: true
+                };
+
+                this.log('✅ Google Maps 直接查詢成功:', coordinates);
+                return coordinates;
+            } else {
+                this.log(`❌ Google Maps 直接查詢失敗: ${data.status} - ${data.error_message || '無結果'}`);
+                return null;
+            }
+
+        } catch (error) {
+            this.log('❌ Google Maps 直接查詢錯誤:', error.message);
+            return null;
+        }
+    }
+
+    /**
      * Google Maps API查詢（高精度模式）
      */
     async queryGoogleMapsApi(variant, apiConfig) {
@@ -2542,8 +2625,8 @@ class MapCoordinateSystem {
      * 檢查是否有Google Maps API密鑰
      */
     hasGoogleMapsApiKey() {
-        // 使用內建的API密鑰或用戶自定義的密鑰
-        const builtInKey = 'CI3loKQXylsWgA9NoZtXVPLeBJA=';
+        // 使用內建的Geocoding API密鑰或用戶自定義的密鑰
+        const builtInKey = 'AIzaSyCwJDNIxdoPHzsk_-YI-JUJKdXa96bi0gc';
         const userKey = localStorage.getItem('google_maps_api_key');
         return builtInKey || (userKey && userKey.trim().length > 0);
     }
@@ -2552,7 +2635,7 @@ class MapCoordinateSystem {
      * 獲取Google Maps API密鑰
      */
     getGoogleMapsApiKey() {
-        const builtInKey = 'CI3loKQXylsWgA9NoZtXVPLeBJA=';
+        const builtInKey = 'AIzaSyCwJDNIxdoPHzsk_-YI-JUJKdXa96bi0gc';
         const userKey = localStorage.getItem('google_maps_api_key');
         return userKey && userKey.trim().length > 0 ? userKey : builtInKey;
     }
