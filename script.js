@@ -273,6 +273,10 @@ class MapCoordinateSystem {
         try {
             this.log('開始地址查詢:', address);
             
+            // 預處理地址，獲取類型信息
+            const addressPreprocessing = this.preprocessCommonAddressPatterns(address);
+            this.log('地址預處理結果:', addressPreprocessing);
+            
             // 先嘗試簡化版本的查詢
             let coordinates = await this.simpleGeocode(address);
             
@@ -280,6 +284,12 @@ class MapCoordinateSystem {
             if (!coordinates) {
                 this.log('簡化版本失敗，嘗試完整版本...');
                 coordinates = await this.geocodeAddress(address);
+            }
+            
+            // 將地址類型信息添加到坐標結果中
+            if (coordinates && addressPreprocessing.type !== 'unknown') {
+                coordinates.addressType = addressPreprocessing.type;
+                coordinates.addressTypeConfidence = addressPreprocessing.confidence;
             }
             
             if (!coordinates) {
@@ -309,7 +319,7 @@ class MapCoordinateSystem {
                     }
                 }
                 
-                this.showError(`無法找到地址"${address}"${customSuggestions}\n\n🔍 台灣地址建議格式：\n• 新北市新店區北宜路二段\n• 台北市信義區信義路五段\n• 台中市西屯區文心路\n• 高雄市前金區中正四路\n• 台北101、台北車站、西門町\n\n🌍 國際地址範例：\n• 北京天安門\n• 東京塔\n• New York Times Square\n• London Big Ben\n\n💡 輸入策略：\n• 從完整地址逐步簡化：縣市→區→路→段\n• 詳細地址找不到時，嘗試主要道路\n• 可以使用知名地標或建築物\n• 避免過於詳細的巷弄和門牌號\n• 確認地址格式和拼寫是否正確`);
+                this.showError(`無法找到地址"${address}"${customSuggestions}\n\n🎯 **智能地址建議**\n\n🏛️ **地標建築**：\n• 台北101、故宮、中正紀念堂\n• 總統府、國父紀念館、龍山寺\n• 九份、淡水、日月潭\n\n🚊 **交通樞紐**：\n• 台北車站、板橋車站、桃園機場\n• 忠孝復興、市政府站、松山機場\n• 台中高鐵、高雄車站\n\n🏫 **教育機構**：\n• 台大、師大、政大、清大、成大\n• 輔大、淡江、世新、建中、北一女\n\n🏥 **醫療機構**：\n• 台大醫院、榮總、長庚、馬偕\n• 亞東醫院、慈濟醫院\n\n🏢 **商業中心**：\n• 信義商圈、東區、西門町、公館\n• 師大夜市、士林夜市、新光三越\n\n📍 **標準地址格式**：\n• 新北市新店區北宜路二段\n• 台北市信義區信義路五段\n• 台中市西屯區文心路\n• 高雄市前金區中正四路\n\n📝 **簡寫支持**：\n• 忠孝 → 忠孝東路/忠孝西路\n• 中山 → 中山路/中山北路/中山南路\n• 北車 → 台北車站\n• 東區 → 忠孝東路商圈\n\n🌐 **英文地址**：\n• Taipei 101\n• Taiwan University\n• Taichung Station\n\n💡 **搜索策略**：\n• 從完整地址→主要道路→區域→地標\n• 詳細門牌號找不到時嘗試路段級\n• 使用知名建築物或地標名稱\n• 支持中英文混合輸入`);
                 return;
             }
 
@@ -336,20 +346,565 @@ class MapCoordinateSystem {
     }
 
     /**
-     * 台灣地址智能解析和格式化 - 增強版
+     * 預處理常見地址模式 - 基於用戶常用輸入優化
+     * @param {string} address 原始地址
+     * @returns {Object} 預處理結果
+     */
+    preprocessCommonAddressPatterns(address) {
+        const result = {
+            mainAddress: address,
+            variants: [],
+            type: 'unknown',
+            confidence: 0.5
+        };
+        
+        const lowerAddress = address.toLowerCase();
+        const cleanAddress = address.trim();
+        
+        // 1. 知名地標和建築物識別
+        const landmarks = this.identifyLandmarks(cleanAddress);
+        if (landmarks.found) {
+            result.variants.push(...landmarks.variants);
+            result.type = 'landmark';
+            result.confidence = 0.9;
+            this.log('🏛️ 識別為地標:', landmarks);
+        }
+        
+        // 2. 交通樞紐識別（車站、捷運站）
+        const transportation = this.identifyTransportationHubs(cleanAddress);
+        if (transportation.found) {
+            result.variants.push(...transportation.variants);
+            result.type = 'transportation';
+            result.confidence = 0.85;
+            this.log('🚊 識別為交通樞紐:', transportation);
+        }
+        
+        // 3. 教育機構識別
+        const education = this.identifyEducationalInstitutions(cleanAddress);
+        if (education.found) {
+            result.variants.push(...education.variants);
+            result.type = 'education';
+            result.confidence = 0.8;
+            this.log('🏫 識別為教育機構:', education);
+        }
+        
+        // 4. 醫療機構識別
+        const medical = this.identifyMedicalInstitutions(cleanAddress);
+        if (medical.found) {
+            result.variants.push(...medical.variants);
+            result.type = 'medical';
+            result.confidence = 0.8;
+            this.log('🏥 識別為醫療機構:', medical);
+        }
+        
+        // 5. 商業中心和購物中心識別
+        const commercial = this.identifyCommercialCenters(cleanAddress);
+        if (commercial.found) {
+            result.variants.push(...commercial.variants);
+            result.type = 'commercial';
+            result.confidence = 0.75;
+            this.log('🏢 識別為商業中心:', commercial);
+        }
+        
+        // 6. 夜市和觀光景點識別
+        const tourism = this.identifyTourismSpots(cleanAddress);
+        if (tourism.found) {
+            result.variants.push(...tourism.variants);
+            result.type = 'tourism';
+            result.confidence = 0.8;
+            this.log('🎯 識別為觀光景點:', tourism);
+        }
+        
+        // 7. 政府機關識別
+        const government = this.identifyGovernmentOffices(cleanAddress);
+        if (government.found) {
+            result.variants.push(...government.variants);
+            result.type = 'government';
+            result.confidence = 0.8;
+            this.log('🏛️ 識別為政府機關:', government);
+        }
+        
+        // 8. 地址簡寫和別名處理
+        const abbreviations = this.processAddressAbbreviations(cleanAddress);
+        if (abbreviations.variants.length > 0) {
+            result.variants.push(...abbreviations.variants);
+            this.log('📝 處理地址簡寫:', abbreviations);
+        }
+        
+        // 9. 拼音和英文混合地址處理
+        const mixed = this.processMixedLanguageAddress(cleanAddress);
+        if (mixed.variants.length > 0) {
+            result.variants.push(...mixed.variants);
+            this.log('🌐 處理混合語言地址:', mixed);
+        }
+        
+        // 去重並限制數量
+        result.variants = [...new Set(result.variants)].slice(0, 15);
+        
+        return result;
+    }
+
+    /**
+     * 識別知名地標和建築物
+     */
+    identifyLandmarks(address) {
+        const landmarks = {
+            // 超知名地標
+            '台北101': ['台北101', 'Taipei 101', '台北市信義區信義路五段7號', '信義區台北101'],
+            '101': ['台北101', 'Taipei 101', '台北市信義區信義路五段7號'],
+            '總統府': ['總統府', '台北市中正區重慶南路一段122號', '中正區總統府'],
+            '中正紀念堂': ['中正紀念堂', '台北市中正區中山南路21號', '自由廣場'],
+            '國父紀念館': ['國父紀念館', '台北市信義區仁愛路四段505號'],
+            '故宮': ['國立故宮博物院', '台北市士林區至善路二段221號', '故宮博物院'],
+            '西門町': ['西門町', '台北市萬華區西門町', '西門紅樓', '台北市萬華區'],
+            '龍山寺': ['龍山寺', '台北市萬華區廣州街211號', '萬華龍山寺'],
+            '九份': ['九份', '新北市瑞芳區九份', '九份老街'],
+            '淡水': ['淡水', '新北市淡水區', '淡水老街', '淡水漁人碼頭'],
+            '野柳': ['野柳', '新北市萬里區野柳里港東路167-1號', '野柳地質公園'],
+            '日月潭': ['日月潭', '南投縣魚池鄉中山路599號'],
+            '阿里山': ['阿里山', '嘉義縣阿里山鄉中正村59號'],
+            '太魯閣': ['太魯閣國家公園', '花蓮縣秀林鄉富世村富世291號'],
+            '墾丁': ['墾丁', '屏東縣恆春鎮墾丁路'],
+            
+            // 台北知名地點
+            '台北車站': ['台北車站', '台北火車站', '台北市中正區北平西路3號', 'Taipei Main Station'],
+            '信義區': ['台北市信義區', '信義商圈', '信義計畫區'],
+            '東區': ['台北市大安區忠孝東路', '忠孝復興', '忠孝敦化'],
+            '公館': ['台北市中正區羅斯福路', '公館商圈', '台大公館'],
+            '師大': ['台北市大安區師大路', '師大夜市', '師範大學'],
+            '永康街': ['台北市大安區永康街', '永康商圈'],
+            '華山': ['華山文創園區', '台北市中正區八德路一段1號'],
+            '松菸': ['松山文創園區', '台北市信義區光復南路133號'],
+            
+            // 新北知名地點
+            '板橋': ['新北市板橋區', '板橋車站', '新北市政府'],
+            '新莊': ['新北市新莊區', '新莊副都心'],
+            '中和': ['新北市中和區', '中和環球購物中心'],
+            '永和': ['新北市永和區', '永和豆漿'],
+            '土城': ['新北市土城區', '土城工業區'],
+            '三重': ['新北市三重區', '三重重新橋'],
+            '蘆洲': ['新北市蘆洲區', '蘆洲湧蓮寺'],
+            '新店': ['新北市新店區', '新店碧潭'],
+            '汐止': ['新北市汐止區', '汐止火車站'],
+            '林口': ['新北市林口區', '林口三井outlet'],
+            '淡海': ['新北市淡水區淡海新市鎮', '淡海輕軌']
+        };
+        
+        for (const [key, variants] of Object.entries(landmarks)) {
+            if (address.includes(key)) {
+                return {
+                    found: true,
+                    originalKey: key,
+                    variants: variants,
+                    type: 'landmark'
+                };
+            }
+        }
+        
+        return { found: false, variants: [] };
+    }
+
+    /**
+     * 識別交通樞紐
+     */
+    identifyTransportationHubs(address) {
+        const stations = {
+            // 台鐵車站
+            '台北車站': ['台北車站', '台北火車站', '台北市中正區北平西路3號'],
+            '松山車站': ['松山車站', '台北市信義區松山路11號'],
+            '萬華車站': ['萬華車站', '台北市萬華區康定路382號'],
+            '板橋車站': ['板橋車站', '新北市板橋區縣民大道二段7號'],
+            '樹林車站': ['樹林車站', '新北市樹林區鎮前街112號'],
+            '桃園車站': ['桃園車站', '桃園市桃園區中正路1號'],
+            '新竹車站': ['新竹車站', '新竹市東區中華路二段445號'],
+            '台中車站': ['台中車站', '台中市中區台灣大道一段1號'],
+            '台南車站': ['台南車站', '台南市東區北門路二段4號'],
+            '高雄車站': ['高雄車站', '高雄市三民區建國二路318號'],
+            
+            // 捷運站（台北）
+            '台北101/世貿': ['台北101/世貿站', '台北市信義區信義路五段'],
+            '市政府': ['市政府站', '台北市信義區市府路'],
+            '忠孝復興': ['忠孝復興站', '台北市大安區忠孝東路三段'],
+            '忠孝敦化': ['忠孝敦化站', '台北市大安區忠孝東路四段'],
+            '西門': ['西門站', '台北市萬華區中華路一段'],
+            '中山': ['中山站', '台北市中山區南京西路'],
+            '雙連': ['雙連站', '台北市大同區民生西路'],
+            '劍潭': ['劍潭站', '台北市士林區中山北路五段'],
+            '士林': ['士林站', '台北市士林區中正路'],
+            '芝山': ['芝山站', '台北市士林區福國路'],
+            '明德': ['明德站', '台北市北投區明德路'],
+            '石牌': ['石牌站', '台北市北投區石牌路二段'],
+            '唭哩岸': ['唭哩岸站', '台北市北投區唭哩岸'],
+            '奇岩': ['奇岩站', '台北市北投區奇岩路'],
+            '北投': ['北投站', '台北市北投區中和街'],
+            '新北投': ['新北投站', '台北市北投區大業路'],
+            
+            // 高鐵站
+            '台北高鐵': ['台北高鐵站', '台北市中正區北平西路3號'],
+            '板橋高鐵': ['板橋高鐵站', '新北市板橋區縣民大道二段7號'],
+            '桃園高鐵': ['桃園高鐵站', '桃園市中壢區高鐵北路一段6號'],
+            '新竹高鐵': ['新竹高鐵站', '新竹縣竹北市高鐵七路6號'],
+            '台中高鐵': ['台中高鐵站', '台中市烏日區站區二路8號'],
+            '台南高鐵': ['台南高鐵站', '台南市歸仁區歸仁大道100號'],
+            '左營高鐵': ['左營高鐵站', '高雄市左營區高鐵路107號'],
+            
+            // 機場
+            '桃園機場': ['桃園國際機場', '桃園市大園區航站南路9號'],
+            '松山機場': ['台北松山機場', '台北市松山區敦化北路340-9號'],
+            '小港機場': ['高雄小港機場', '高雄市小港區中山四路2號']
+        };
+        
+        // 檢查完全匹配
+        for (const [key, variants] of Object.entries(stations)) {
+            if (address.includes(key) || 
+                address.includes(key.replace('車站', '站')) ||
+                address.includes(key.replace('站', ''))) {
+                return {
+                    found: true,
+                    originalKey: key,
+                    variants: variants,
+                    type: 'transportation'
+                };
+            }
+        }
+        
+        // 檢查通用模式
+        if (address.includes('車站') || address.includes('火車站') || 
+            address.includes('捷運') || address.includes('高鐵') || 
+            address.includes('機場') || address.includes('站')) {
+            return {
+                found: true,
+                originalKey: address,
+                variants: [address, address + ' 台灣', 'Taiwan ' + address],
+                type: 'transportation'
+            };
+        }
+        
+        return { found: false, variants: [] };
+    }
+
+    /**
+     * 識別教育機構
+     */
+    identifyEducationalInstitutions(address) {
+        const institutions = {
+            // 知名大學
+            '台大': ['國立台灣大學', '台北市大安區羅斯福路四段1號', '台灣大學'],
+            '台灣大學': ['國立台灣大學', '台北市大安區羅斯福路四段1號'],
+            '政大': ['國立政治大學', '台北市文山區指南路二段64號', '政治大學'],
+            '師大': ['國立台灣師範大學', '台北市大安區和平東路一段162號', '師範大學'],
+            '清大': ['國立清華大學', '新竹市東區光復路二段101號', '清華大學'],
+            '交大': ['國立陽明交通大學', '新竹市東區大學路1001號', '交通大學'],
+            '成大': ['國立成功大學', '台南市東區大學路1號', '成功大學'],
+            '中山大學': ['國立中山大學', '高雄市鼓山區蓮海路70號'],
+            '台科大': ['國立台灣科技大學', '台北市大安區基隆路四段43號'],
+            '北科大': ['國立台北科技大學', '台北市大安區忠孝東路三段1號'],
+            '世新': ['世新大學', '台北市文山區木柵路一段17巷1號'],
+            '文化': ['中國文化大學', '台北市士林區華岡路55號'],
+            '東吳': ['東吳大學', '台北市士林區臨溪路70號'],
+            '輔大': ['輔仁大學', '新北市新莊區中正路510號'],
+            '淡江': ['淡江大學', '新北市淡水區英專路151號'],
+            
+            // 知名高中
+            '建中': ['台北市立建國高級中學', '台北市中正區南海路56號'],
+            '北一女': ['台北市立第一女子高級中學', '台北市中正區重慶南路一段165號'],
+            '師大附中': ['國立台灣師範大學附屬高級中學', '台北市大安區信義路三段143號'],
+            '成功高中': ['台北市立成功高級中學', '台北市中正區濟南路一段71號']
+        };
+        
+        for (const [key, variants] of Object.entries(institutions)) {
+            if (address.includes(key)) {
+                return {
+                    found: true,
+                    originalKey: key,
+                    variants: variants,
+                    type: 'education'
+                };
+            }
+        }
+        
+        // 通用教育機構模式
+        if (address.includes('大學') || address.includes('學校') || 
+            address.includes('高中') || address.includes('國中') || 
+            address.includes('小學') || address.includes('幼稚園')) {
+            return {
+                found: true,
+                originalKey: address,
+                variants: [address, address + ' 台灣', 'Taiwan ' + address],
+                type: 'education'
+            };
+        }
+        
+        return { found: false, variants: [] };
+    }
+
+    /**
+     * 識別醫療機構
+     */
+    identifyMedicalInstitutions(address) {
+        const hospitals = {
+            '台大醫院': ['國立台灣大學醫學院附設醫院', '台北市中正區中山南路7號'],
+            '榮總': ['台北榮民總醫院', '台北市北投區石牌路二段201號'],
+            '長庚': ['長庚紀念醫院', '台北市松山區敦化北路199號'],
+            '馬偕': ['馬偕紀念醫院', '台北市中山區中山北路二段92號'],
+            '慈濟': ['佛教慈濟綜合醫院', '台北市信義區松德路289號'],
+            '亞東': ['亞東紀念醫院', '新北市板橋區南雅南路二段21號'],
+            '新光': ['新光吳火獅紀念醫院', '台北市士林區文昌路95號'],
+            '國泰': ['國泰綜合醫院', '台北市大安區仁愛路四段280號']
+        };
+        
+        for (const [key, variants] of Object.entries(hospitals)) {
+            if (address.includes(key)) {
+                return {
+                    found: true,
+                    originalKey: key,
+                    variants: variants,
+                    type: 'medical'
+                };
+            }
+        }
+        
+        // 通用醫療機構模式
+        if (address.includes('醫院') || address.includes('診所') || 
+            address.includes('衛生所') || address.includes('健康中心')) {
+            return {
+                found: true,
+                originalKey: address,
+                variants: [address, address + ' 台灣', 'Taiwan ' + address],
+                type: 'medical'
+            };
+        }
+        
+        return { found: false, variants: [] };
+    }
+
+    /**
+     * 識別商業中心
+     */
+    identifyCommercialCenters(address) {
+        const centers = {
+            '信義商圈': ['台北市信義區', '信義計畫區', '台北101'],
+            '東區': ['台北市大安區忠孝東路', '忠孝復興', '忠孝敦化'],
+            '西門町': ['台北市萬華區西門町', '西門紅樓'],
+            '公館': ['台北市中正區羅斯福路', '公館商圈'],
+            '師大夜市': ['台北市大安區師大路', '師大商圈'],
+            '寧夏夜市': ['台北市大同區寧夏路', '寧夏觀光夜市'],
+            '士林夜市': ['台北市士林區大東路', '士林觀光夜市'],
+            '饒河夜市': ['台北市松山區饒河街', '饒河觀光夜市'],
+            '華西街夜市': ['台北市萬華區華西街', '華西街觀光夜市'],
+            '臨江街夜市': ['台北市大安區臨江街', '通化夜市'],
+            
+            // 百貨公司
+            '新光三越': ['新光三越百貨', '台北市信義區松高路19號'],
+            '遠百': ['遠東百貨', '台北市大安區忠孝東路四段45號'],
+            '微風': ['微風廣場', '台北市松山區復興南路一段39號'],
+            'SOGO': ['太平洋SOGO百貨', '台北市大安區忠孝東路四段45號'],
+            '統一時代': ['統一時代百貨', '台北市信義區忠孝東路五段8號'],
+            '京站': ['京站時尚廣場', '台北市大同區承德路一段1號'],
+            '美麗華': ['美麗華百樂園', '台北市中山區敬業三路20號'],
+            '大遠百': ['大遠百', '台北市中山區南京東路三段251號']
+        };
+        
+        for (const [key, variants] of Object.entries(centers)) {
+            if (address.includes(key)) {
+                return {
+                    found: true,
+                    originalKey: key,
+                    variants: variants,
+                    type: 'commercial'
+                };
+            }
+        }
+        
+        return { found: false, variants: [] };
+    }
+
+    /**
+     * 識別觀光景點
+     */
+    identifyTourismSpots(address) {
+        const spots = {
+            '夜市': [address, address + ' 台灣', 'Taiwan ' + address],
+            '老街': [address, address + ' 台灣', 'Taiwan ' + address],
+            '風景區': [address, address + ' 台灣', 'Taiwan ' + address],
+            '國家公園': [address, address + ' 台灣', 'Taiwan ' + address],
+            '博物館': [address, address + ' 台灣', 'Taiwan ' + address],
+            '紀念館': [address, address + ' 台灣', 'Taiwan ' + address],
+            '文化園區': [address, address + ' 台灣', 'Taiwan ' + address]
+        };
+        
+        for (const key of Object.keys(spots)) {
+            if (address.includes(key)) {
+                return {
+                    found: true,
+                    originalKey: key,
+                    variants: spots[key],
+                    type: 'tourism'
+                };
+            }
+        }
+        
+        return { found: false, variants: [] };
+    }
+
+    /**
+     * 識別政府機關
+     */
+    identifyGovernmentOffices(address) {
+        const offices = {
+            '總統府': ['總統府', '台北市中正區重慶南路一段122號'],
+            '行政院': ['行政院', '台北市中正區忠孝東路一段1號'],
+            '立法院': ['立法院', '台北市中正區中山南路1號'],
+            '監察院': ['監察院', '台北市中正區忠孝東路一段2號'],
+            '司法院': ['司法院', '台北市中正區重慶南路一段124號'],
+            '台北市政府': ['台北市政府', '台北市信義區市府路1號'],
+            '新北市政府': ['新北市政府', '新北市板橋區中山路一段161號']
+        };
+        
+        for (const [key, variants] of Object.entries(offices)) {
+            if (address.includes(key)) {
+                return {
+                    found: true,
+                    originalKey: key,
+                    variants: variants,
+                    type: 'government'
+                };
+            }
+        }
+        
+        // 通用政府機關模式
+        if (address.includes('市政府') || address.includes('縣政府') || 
+            address.includes('區公所') || address.includes('戶政事務所') ||
+            address.includes('地政事務所') || address.includes('稅務局')) {
+            return {
+                found: true,
+                originalKey: address,
+                variants: [address, address + ' 台灣', 'Taiwan ' + address],
+                type: 'government'
+            };
+        }
+        
+        return { found: false, variants: [] };
+    }
+
+    /**
+     * 處理地址簡寫和別名
+     */
+    processAddressAbbreviations(address) {
+        const abbreviations = {
+            // 路名簡寫
+            '中山': ['中山路', '中山北路', '中山南路', '中山東路', '中山西路'],
+            '忠孝': ['忠孝路', '忠孝東路', '忠孝西路'],
+            '仁愛': ['仁愛路', '仁愛東路', '仁愛西路'],
+            '信義': ['信義路', '信義東路', '信義西路'],
+            '和平': ['和平路', '和平東路', '和平西路'],
+            '民生': ['民生路', '民生東路', '民生西路'],
+            '民權': ['民權路', '民權東路', '民權西路'],
+            '南京': ['南京路', '南京東路', '南京西路'],
+            '復興': ['復興路', '復興北路', '復興南路'],
+            '敦化': ['敦化路', '敦化北路', '敦化南路'],
+            
+            // 區域簡寫
+            '北車': ['台北車站', '台北火車站'],
+            '東區': ['忠孝東路', '大安區'],
+            '西門': ['西門町', '西門站'],
+            '公館': ['公館商圈', '台大公館'],
+            '師大': ['師大路', '師大夜市'],
+            
+            // 縣市簡寫
+            '北市': ['台北市'],
+            '新北': ['新北市'],
+            '桃市': ['桃園市'],
+            '中市': ['台中市'],
+            '南市': ['台南市'],
+            '高市': ['高雄市']
+        };
+        
+        const variants = [];
+        
+        for (const [abbrev, expansions] of Object.entries(abbreviations)) {
+            if (address.includes(abbrev)) {
+                for (const expansion of expansions) {
+                    const newAddress = address.replace(abbrev, expansion);
+                    if (newAddress !== address) {
+                        variants.push(newAddress);
+                    }
+                }
+            }
+        }
+        
+        return { variants };
+    }
+
+    /**
+     * 處理混合語言地址
+     */
+    processMixedLanguageAddress(address) {
+        const variants = [];
+        
+        // 英文地名對照
+        const englishMappings = {
+            'taipei': '台北',
+            'new taipei': '新北',
+            'taoyuan': '桃園',
+            'taichung': '台中',
+            'tainan': '台南',
+            'kaohsiung': '高雄',
+            'hsinchu': '新竹',
+            'keelung': '基隆',
+            'taiwan': '台灣',
+            'station': '車站',
+            'hospital': '醫院',
+            'university': '大學',
+            'school': '學校',
+            'road': '路',
+            'street': '街',
+            'avenue': '大道'
+        };
+        
+        let processedAddress = address.toLowerCase();
+        let hasEnglish = false;
+        
+        for (const [english, chinese] of Object.entries(englishMappings)) {
+            if (processedAddress.includes(english)) {
+                hasEnglish = true;
+                processedAddress = processedAddress.replace(new RegExp(english, 'gi'), chinese);
+            }
+        }
+        
+        if (hasEnglish) {
+            variants.push(processedAddress);
+            variants.push(processedAddress + ' 台灣');
+            variants.push('Taiwan ' + processedAddress);
+        }
+        
+        return { variants };
+    }
+
+    /**
+     * 台灣地址智能解析和格式化 - 增強版（基於常用地址模式優化）
      * @param {string} address 原始地址
      * @returns {Array<string>} 格式化後的地址變體（按優先級排序）
      */
     formatTaiwanAddress(address) {
         const variants = [];
-        this.log('開始分析台灣地址:', address);
+        this.log('🔍 開始智能分析台灣地址:', address);
         
-        // 1. 原始地址
-        variants.push(address);
+        // 0. 預處理：常見地址模式識別和優化
+        const preprocessed = this.preprocessCommonAddressPatterns(address);
+        this.log('📋 預處理結果:', preprocessed);
+        
+        // 添加預處理的地址變體
+        variants.push(...preprocessed.variants);
+        
+        // 1. 原始地址（如果預處理沒有修改）
+        if (!preprocessed.variants.includes(address)) {
+            variants.push(address);
+        }
         
         // 2. 詳細的台灣地址解析
-        const addressAnalysis = this.parseDetailedTaiwanAddress(address);
-        this.log('地址解析結果:', addressAnalysis);
+        const addressAnalysis = this.parseDetailedTaiwanAddress(preprocessed.mainAddress || address);
+        this.log('🏗️ 地址結構解析:', addressAnalysis);
         
         // 3. 基於解析結果生成多層級地址變體
         if (addressAnalysis.isDetailed) {
@@ -1140,6 +1695,7 @@ class MapCoordinateSystem {
         let addressInfo = '';
         let qualityInfo = '';
         let suggestionInfo = '';
+        let typeInfo = '';
         
         // 處理建議地址的情況
         if (data.wgs84.suggestion) {
@@ -1168,10 +1724,16 @@ class MapCoordinateSystem {
             }
         }
         
+        // 顯示地址類型信息
+        if (data.wgs84.addressType) {
+            typeInfo = this.generateAddressTypeHTML(data.wgs84.addressType, data.wgs84.addressTypeConfidence);
+        }
+        
         const html = `
             <div class="result-item">
                 <h3><i class="${headerIcon}"></i> ${headerText}</h3>
                 ${addressInfo}
+                ${typeInfo}
                 ${qualityInfo}
                 
                 <div class="coordinate-info">
@@ -1196,6 +1758,33 @@ class MapCoordinateSystem {
 
         this.elements.addressSearchResult.innerHTML = html;
         this.elements.addressSearchResult.classList.add('show');
+    }
+
+    /**
+     * 生成地址類型信息HTML
+     */
+    generateAddressTypeHTML(addressType, confidence) {
+        const typeMapping = {
+            'landmark': { icon: '🏛️', name: '知名地標', color: '#17a2b8' },
+            'transportation': { icon: '🚊', name: '交通樞紐', color: '#28a745' },
+            'education': { icon: '🏫', name: '教育機構', color: '#6f42c1' },
+            'medical': { icon: '🏥', name: '醫療機構', color: '#dc3545' },
+            'commercial': { icon: '🏢', name: '商業中心', color: '#fd7e14' },
+            'tourism': { icon: '🎯', name: '觀光景點', color: '#20c997' },
+            'government': { icon: '🏛️', name: '政府機關', color: '#6c757d' },
+            'unknown': { icon: '📍', name: '一般地址', color: '#495057' }
+        };
+        
+        const typeInfo = typeMapping[addressType] || typeMapping['unknown'];
+        
+        return `
+            <div style="background-color: #f8f9fa; border-left: 4px solid ${typeInfo.color}; padding: 10px; margin: 10px 0;">
+                <div style="font-weight: bold; color: ${typeInfo.color};">${typeInfo.icon} 地址類型：${typeInfo.name}</div>
+                <div style="margin-top: 5px; font-size: 0.9em; color: #666;">
+                    <strong>智能識別置信度：</strong>${(confidence * 100).toFixed(0)}%
+                </div>
+            </div>
+        `;
     }
 
     /**
