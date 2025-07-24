@@ -11,6 +11,7 @@ ehthumbs.db
 Thumbs.db
 
 # Python相關（本地服務器腳本不需要部署）
+start-server.py
 __pycache__/
 *.py[cod]
 *$py.class
