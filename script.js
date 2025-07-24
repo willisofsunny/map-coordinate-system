@@ -43,6 +43,34 @@ class MapCoordinateSystem {
     }
 
     /**
+     * 簡化錯誤提示
+     */
+    showSimpleError(address) {
+        this.showError(
+            `無法找到地址"${address}"`,
+            `
+            🎯 <strong>Geocoding API 查詢建議：</strong>
+            
+            📍 <strong>檢查API配置：</strong>
+            • 確認Geocoding API已在Google Cloud Console啟用
+            • 檢查API密鑰是否有效且無使用限制
+            • 確認專案已啟用計費（免費配額內無需付費）
+            
+            📝 <strong>嘗試簡化地址：</strong>
+            • ${address.replace(/\d+巷\d+弄\d+號.*$/, '')} (移除詳細門牌號)
+            • ${address.replace(/\d+號.*$/, '')} (移除門牌號)
+            • ${address.replace(/\d+巷.*$/, '')} (移除巷弄)
+            
+            🏢 <strong>或使用地標：</strong>
+            • 台北101、總統府、台大醫院
+            • 板橋車站、松山機場
+            
+            💡 如果API配置正確，系統會自動嘗試簡化地址查詢
+            `
+        );
+    }
+
+    /**
      * Google Maps查詢失敗時的專用錯誤處理
      */
     showGoogleMapsError(address) {
@@ -373,19 +401,13 @@ class MapCoordinateSystem {
             const addressPreprocessing = this.preprocessCommonAddressPatterns(address);
             this.log('地址預處理結果:', addressPreprocessing);
             
-            // 優先使用Google Maps API直接查詢
-            let coordinates = await this.directGoogleMapsGeocode(address);
+            // 直接使用Geocoding API查詢 - 簡化版本
+            let coordinates = await this.directGeocodingApiQuery(address);
             
-            // 如果Google Maps失敗，使用高級地址補間系統作為備用
+            // 如果直接查詢失敗，嘗試簡化地址
             if (!coordinates) {
-                this.log('Google Maps查詢失敗，使用高級系統...');
-                coordinates = await this.advancedAddressGeocode(address);
-            }
-            
-            // 如果高級系統也失敗，嘗試完整版本
-            if (!coordinates) {
-                this.log('高級系統失敗，嘗試完整版本...');
-                coordinates = await this.geocodeAddress(address);
+                this.log('直接查詢失敗，嘗試簡化地址...');
+                coordinates = await this.simpleAddressFallback(address);
             }
             
             // 將地址類型信息添加到坐標結果中
@@ -395,8 +417,8 @@ class MapCoordinateSystem {
             }
             
             if (!coordinates) {
-                // 使用Google Maps專用錯誤提示
-                this.showGoogleMapsError(address);
+                // 使用簡化錯誤提示
+                this.showSimpleError(address);
                 return;
             }
 
@@ -1763,68 +1785,63 @@ class MapCoordinateSystem {
     }
 
     /**
-     * 顯示地址搜索結果
+     * 顯示地址搜索結果 - 簡化版本，直接顯示Geocoding API結果
      * @param {Object} data 搜索數據
      */
     displayAddressResult(data) {
-        let headerIcon = 'fas fa-search-location';
-        let headerText = '地址查詢結果';
+        let headerIcon = 'fab fa-google';
+        let headerText = 'Geocoding API 查詢結果';
         let addressInfo = '';
-        let qualityInfo = '';
-        let suggestionInfo = '';
-        let typeInfo = '';
+        let apiInfo = '';
         
-        // 處理建議地址的情況
-        if (data.wgs84.suggestion) {
-            headerIcon = 'fas fa-exclamation-triangle';
-            headerText = '相近地址查詢結果';
+        // 處理原始地址與找到地址不同的情況（簡化查詢）
+        if (data.wgs84.originalAddress && data.wgs84.originalAddress !== data.address) {
+            headerIcon = 'fas fa-search';
+            headerText = 'Geocoding API 簡化查詢結果';
             
             addressInfo = `
-                <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px; padding: 10px; margin: 10px 0;">
-                    <div style="color: #856404; font-weight: bold;">⚠️ 精確地址未找到</div>
-                    <div style="margin-top: 5px;"><strong>您輸入的地址：</strong>${data.wgs84.originalAddress}</div>
-                    <div style="margin-top: 3px;"><strong>建議相近位置：</strong>${data.address}</div>
-                    <div style="margin-top: 3px; color: #666;"><strong>定位級別：</strong>${data.wgs84.suggestionLevel}</div>
+                <div style="background-color: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 15px; margin: 15px 0;">
+                    <div style="color: #1976d2; font-weight: bold; margin-bottom: 8px;">📍 地址簡化查詢</div>
+                    <div style="margin-bottom: 5px;"><strong>您輸入：</strong>${data.wgs84.originalAddress}</div>
+                    <div><strong>系統查詢：</strong>${data.address}</div>
                 </div>
             `;
-            
-            suggestionInfo = this.generateSuggestionHTML(data.wgs84.originalAddress, data.wgs84.suggestionLevel);
         } else {
             addressInfo = `
-                <p><strong>查詢地址：</strong>${data.inputAddress}</p>
-                <p><strong>找到地址：</strong>${data.address}</p>
+                <p style="margin: 10px 0;"><strong>查詢地址：</strong>${data.inputAddress || data.address}</p>
+                <p style="margin: 10px 0;"><strong>找到地址：</strong>${data.address}</p>
             `;
+        }
+        
+        // 顯示簡化的API信息
+        if (data.wgs84.source) {
+            const confidenceColor = data.wgs84.confidence >= 0.9 ? '#28a745' : 
+                                  data.wgs84.confidence >= 0.7 ? '#ffc107' : '#dc3545';
+            const locationTypeText = this.getLocationTypeText(data.wgs84.locationType);
             
-            // 顯示品質信息
-            if (data.wgs84.confidence) {
-                qualityInfo = this.generateQualityHTML(data.wgs84.confidence, data.wgs84.source);
-            }
-        }
-        
-        // 顯示地址類型信息
-        if (data.wgs84.addressType) {
-            typeInfo = this.generateAddressTypeHTML(data.wgs84.addressType, data.wgs84.addressTypeConfidence);
-        }
-        
-        // 顯示補間和多API信息
-        let advancedInfo = '';
-        if (data.wgs84.isGoogleMaps) {
-            advancedInfo = this.generateGoogleMapsHTML(data.wgs84);
-        } else if (data.wgs84.interpolated) {
-            advancedInfo = this.generateInterpolationHTML(data.wgs84);
-        } else if (data.wgs84.referenceAddress) {
-            advancedInfo = this.generateReferenceEstimationHTML(data.wgs84);
-        } else if (data.wgs84.source && data.wgs84.source.includes('Ultra Precision')) {
-            advancedInfo = this.generateMultiApiHTML(data.wgs84);
+            apiInfo = `
+                <div style="background-color: #f8f9fa; border-left: 4px solid #4285f4; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                    <div style="font-weight: bold; color: #4285f4; margin-bottom: 10px;">
+                        <i class="fab fa-google"></i> ${data.wgs84.source}
+                    </div>
+                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                        <div style="color: #666;">
+                            <strong>定位類型：</strong>${locationTypeText}
+                        </div>
+                        <div style="color: ${confidenceColor};">
+                            <strong>置信度：</strong>${(data.wgs84.confidence * 100).toFixed(0)}%
+                        </div>
+                    </div>
+                    ${data.wgs84.placeId ? `<div style="margin-top: 8px; color: #666; font-size: 0.9em;"><strong>Place ID：</strong>${data.wgs84.placeId}</div>` : ''}
+                </div>
+            `;
         }
         
         const html = `
             <div class="result-item">
                 <h3><i class="${headerIcon}"></i> ${headerText}</h3>
                 ${addressInfo}
-                ${typeInfo}
-                ${advancedInfo}
-                ${qualityInfo}
+                ${apiInfo}
                 
                 <div class="coordinate-info">
                     <div class="coord-item">
@@ -1841,13 +1858,24 @@ class MapCoordinateSystem {
                         <p class="small">度分秒：${CoordinateConverter.toDegreeMinuteSecond(data.bd09.lng, 'lng')}, ${CoordinateConverter.toDegreeMinuteSecond(data.bd09.lat, 'lat')}</p>
                     </div>
                 </div>
-                
-                ${suggestionInfo}
             </div>
         `;
 
         this.elements.addressSearchResult.innerHTML = html;
         this.elements.addressSearchResult.classList.add('show');
+    }
+
+    /**
+     * 獲取位置類型的中文描述
+     */
+    getLocationTypeText(locationType) {
+        const typeMapping = {
+            'ROOFTOP': '🎯 屋頂精確定位',
+            'RANGE_INTERPOLATED': '📐 範圍插值定位',
+            'GEOMETRIC_CENTER': '📍 幾何中心定位', 
+            'APPROXIMATE': '🔍 近似定位'
+        };
+        return typeMapping[locationType] || '📍 一般定位';
     }
 
     /**
@@ -2459,6 +2487,151 @@ class MapCoordinateSystem {
             this.log(`API查詢失敗 (${apiConfig.name}):`, error.message);
             return null;
         }
+    }
+
+    /**
+     * 直接Geocoding API查詢 - 簡化版本
+     */
+    async directGeocodingApiQuery(address) {
+        const apiKey = this.getGoogleMapsApiKey();
+        if (!apiKey) {
+            this.log('Geocoding API密鑰未配置');
+            return null;
+        }
+
+        try {
+            this.log('🚀 Geocoding API 直接查詢:', address);
+            
+            const params = new URLSearchParams({
+                address: address,
+                key: apiKey,
+                region: 'tw',
+                language: 'zh-TW',
+                components: 'country:TW'
+            });
+
+            const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            this.log('📍 Geocoding API 響應:', data);
+
+            if (data.status === 'OK' && data.results && data.results.length > 0) {
+                const result = data.results[0];
+                const coordinates = {
+                    lng: result.geometry.location.lng,
+                    lat: result.geometry.location.lat,
+                    displayAddress: result.formatted_address,
+                    confidence: this.calculateGeocodingConfidence(result),
+                    source: 'Geocoding API 直接查詢',
+                    locationType: result.geometry.location_type,
+                    placeId: result.place_id,
+                    types: result.types
+                };
+
+                this.log('✅ Geocoding API 查詢成功:', coordinates);
+                return coordinates;
+            } else {
+                this.log(`❌ Geocoding API 失敗: ${data.status} - ${data.error_message || '無結果'}`);
+                
+                // 顯示具體的API錯誤信息
+                if (data.status === 'REQUEST_DENIED') {
+                    this.showError('Geocoding API 配置錯誤', 
+                        `請檢查：\n• API密鑰是否有效\n• Geocoding API是否已啟用\n• API密鑰是否有使用限制\n\n錯誤詳情：${data.error_message || '未知錯誤'}`);
+                }
+                return null;
+            }
+
+        } catch (error) {
+            this.log('❌ Geocoding API 網絡錯誤:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * 簡單地址備用查詢
+     */
+    async simpleAddressFallback(address) {
+        // 嘗試簡化地址的幾種方式
+        const simplifiedAddresses = this.generateSimplifiedAddresses(address);
+        
+        for (const simplifiedAddress of simplifiedAddresses) {
+            this.log('嘗試簡化地址:', simplifiedAddress);
+            const result = await this.directGeocodingApiQuery(simplifiedAddress);
+            if (result) {
+                result.source = 'Geocoding API 簡化查詢';
+                result.originalAddress = address;
+                return result;
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 生成簡化地址變體
+     */
+    generateSimplifiedAddresses(address) {
+        const variants = [];
+        
+        // 移除詳細門牌號 (巷弄號)
+        const withoutDetail = address.replace(/(\d+巷\d+弄)\d+號/, '$1');
+        if (withoutDetail !== address) variants.push(withoutDetail);
+        
+        // 移除門牌號
+        const withoutHouseNumber = address.replace(/\d+號.*$/, '');
+        if (withoutHouseNumber !== address) variants.push(withoutHouseNumber);
+        
+        // 移除巷弄
+        const withoutAlley = address.replace(/\d+巷.*$/, '');
+        if (withoutAlley !== address) variants.push(withoutAlley);
+        
+        // 只保留主要道路
+        const roadOnly = address.replace(/(.*路|.*街|.*大道)\d*段.*$/, '$1');
+        if (roadOnly !== address) variants.push(roadOnly);
+        
+        return [...new Set(variants)]; // 去重
+    }
+
+    /**
+     * 計算Geocoding結果置信度
+     */
+    calculateGeocodingConfidence(result) {
+        let confidence = 0.8; // 基礎置信度
+        
+        // 根據location_type調整
+        switch(result.geometry.location_type) {
+            case 'ROOFTOP':
+                confidence = 0.95;
+                break;
+            case 'RANGE_INTERPOLATED':
+                confidence = 0.85;
+                break;
+            case 'GEOMETRIC_CENTER':
+                confidence = 0.75;
+                break;
+            case 'APPROXIMATE':
+                confidence = 0.65;
+                break;
+        }
+        
+        // 根據types調整
+        if (result.types.includes('street_address')) {
+            confidence += 0.05;
+        }
+        if (result.types.includes('premise')) {
+            confidence += 0.03;
+        }
+        
+        return Math.min(confidence, 1.0);
     }
 
     /**

@@ -3,197 +3,399 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>地址查詢測試</title>
+    <title>Geocoding API 測試工具</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            background: #f0f0f0;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
             padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            color: #333;
         }
-        .test-item {
-            margin: 15px 0;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background: #f9f9f9;
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
         }
-        button {
-            background: #007bff;
+
+        header {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: white;
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .api-test-section {
+            background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+
+        .api-test-section h2 {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .test-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .test-input-group input {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            min-width: 250px;
+        }
+
+        .test-input-group button {
+            padding: 12px 20px;
+            background: #ff6b6b;
             color: white;
             border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .test-input-group button:hover {
+            background: #ff5252;
+            transform: translateY(-2px);
+        }
+
+        .quick-tests {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .quick-test-btn {
             padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .quick-test-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .test-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+
+        .test-item h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .test-item button {
+            margin: 5px;
+            padding: 10px 15px;
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            border: none;
             border-radius: 5px;
             cursor: pointer;
-            margin: 5px;
+            transition: all 0.3s ease;
         }
-        button:hover {
-            background: #0056b3;
+
+        .test-item button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
         }
-        .result {
+
+        .results {
+            margin-top: 30px;
+        }
+
+        .result-item {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #28a745;
+        }
+
+        .result-item.loading {
+            border-left-color: #ffc107;
+        }
+
+        .result-item.error {
+            border-left-color: #dc3545;
+        }
+
+        .result-item h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .coordinates {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
             margin-top: 10px;
-            padding: 10px;
-            background: #e9ecef;
-            border-radius: 3px;
-            word-break: break-all;
+            font-family: 'Courier New', monospace;
         }
-        .success { background: #d4edda; border-color: #c3e6cb; }
-        .error { background: #f8d7da; border-color: #f5c6cb; }
-        .loading { background: #fff3cd; border-color: #ffeaa7; }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
+    <script src="coordinate-converter.js"></script>
 </head>
 <body>
     <div class="container">
-        <h1>🧪 地址查詢API測試工具</h1>
-        <p>這個工具用來測試不同的地理編碼API服務，幫助診斷地址查詢問題。</p>
+        <header>
+            <h1><i class="fab fa-google"></i> Geocoding API 測試工具</h1>
+            <p class="subtitle">專用於測試Google Geocoding API的地址查詢功能</p>
+        </header>
 
-        <div class="test-item">
-            <h3>台灣詳細地址測試</h3>
-            <button onclick="testAddress('新北市新店區北宜路二段421巷2弄43號')">新北市新店區北宜路二段421巷2弄43號</button>
-            <button onclick="testAddress('台北市信義區信義路五段7號')">台北市信義區信義路五段7號</button>
-            <button onclick="testAddress('新北市板橋區縣民大道二段7號')">新北市板橋區縣民大道二段7號</button>
-            <button onclick="testAddress('台中市西屯區文心路二段201號')">台中市西屯區文心路二段201號</button>
-        </div>
+        <div class="main-content">
+            <!-- Geocoding API 專用測試區域 -->
+            <div class="api-test-section">
+                <h2><i class="fas fa-vial"></i> Geocoding API 直接測試</h2>
+                
+                <div class="test-input-group">
+                    <input type="text" id="directTestInput" placeholder="輸入要測試的地址..." value="新北市新店區北宜路二段421巷2弄43號">
+                    <button onclick="testGeocodingApiDirect()">🎯 直接測試API</button>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <strong>快速測試：</strong>
+                </div>
+                <div class="quick-tests">
+                    <button class="quick-test-btn" onclick="quickTest('台北101')">台北101</button>
+                    <button class="quick-test-btn" onclick="quickTest('總統府')">總統府</button>
+                    <button class="quick-test-btn" onclick="quickTest('台大醫院')">台大醫院</button>
+                    <button class="quick-test-btn" onclick="quickTest('板橋車站')">板橋車站</button>
+                    <button class="quick-test-btn" onclick="quickTest('松山機場')">松山機場</button>
+                    <button class="quick-test-btn" onclick="quickTest('新北市新店區北宜路二段')">北宜路二段</button>
+                </div>
+            </div>
 
-        <div class="test-item">
-            <h3>台灣區域和地標測試</h3>
-            <button onclick="testAddress('台北101')">台北101</button>
-            <button onclick="testAddress('新北市新店區')">新北市新店區</button>
-            <button onclick="testAddress('台北市信義區')">台北市信義區</button>
-            <button onclick="testAddress('台中市西屯區')">台中市西屯區</button>
-            <button onclick="testAddress('台北車站')">台北車站</button>
-            <button onclick="testAddress('西門町')">西門町</button>
-        </div>
+            <div class="test-item">
+                <h3>台灣詳細地址測試</h3>
+                <button onclick="testAddress('新北市新店區北宜路二段421巷2弄43號')">新北市新店區北宜路二段421巷2弄43號</button>
+                <button onclick="testAddress('台北市信義區信義路五段7號')">台北市信義區信義路五段7號</button>
+                <button onclick="testAddress('新北市板橋區縣民大道二段7號')">新北市板橋區縣民大道二段7號</button>
+                <button onclick="testAddress('台中市西屯區文心路二段201號')">台中市西屯區文心路二段201號</button>
+            </div>
 
-        <div class="test-item">
-            <h3>🚊 交通樞紐測試</h3>
-            <button onclick="testAddress('板橋車站')">板橋車站</button>
-            <button onclick="testAddress('松山機場')">松山機場</button>
-            <button onclick="testAddress('桃園機場')">桃園機場</button>
-            <button onclick="testAddress('忠孝復興')">忠孝復興</button>
-            <button onclick="testAddress('市政府站')">市政府站</button>
-            <button onclick="testAddress('台中高鐵')">台中高鐵</button>
-        </div>
+            <div class="test-item">
+                <h3>台灣區域和地標測試</h3>
+                <button onclick="testAddress('台北101')">台北101</button>
+                <button onclick="testAddress('新北市新店區')">新北市新店區</button>
+                <button onclick="testAddress('台北市信義區')">台北市信義區</button>
+                <button onclick="testAddress('台中市西屯區')">台中市西屯區</button>
+                <button onclick="testAddress('台北車站')">台北車站</button>
+                <button onclick="testAddress('西門町')">西門町</button>
+            </div>
 
-        <div class="test-item">
-            <h3>🏫 教育機構測試</h3>
-            <button onclick="testAddress('台大')">台大</button>
-            <button onclick="testAddress('師大')">師大</button>
-            <button onclick="testAddress('政大')">政大</button>
-            <button onclick="testAddress('清大')">清大</button>
-            <button onclick="testAddress('成大')">成大</button>
-            <button onclick="testAddress('輔大')">輔大</button>
-        </div>
+            <div class="test-item">
+                <h3>🚊 交通樞紐測試</h3>
+                <button onclick="testAddress('板橋車站')">板橋車站</button>
+                <button onclick="testAddress('松山機場')">松山機場</button>
+                <button onclick="testAddress('桃園機場')">桃園機場</button>
+                <button onclick="testAddress('忠孝復興')">忠孝復興</button>
+                <button onclick="testAddress('市政府站')">市政府站</button>
+                <button onclick="testAddress('台中高鐵')">台中高鐵</button>
+            </div>
 
-        <div class="test-item">
-            <h3>🏥 醫療機構測試</h3>
-            <button onclick="testAddress('台大醫院')">台大醫院</button>
-            <button onclick="testAddress('榮總')">榮總</button>
-            <button onclick="testAddress('長庚')">長庚</button>
-            <button onclick="testAddress('馬偕')">馬偕</button>
-            <button onclick="testAddress('亞東醫院')">亞東醫院</button>
-        </div>
+            <div class="test-item">
+                <h3>🏫 教育機構測試</h3>
+                <button onclick="testAddress('台大')">台大</button>
+                <button onclick="testAddress('師大')">師大</button>
+                <button onclick="testAddress('政大')">政大</button>
+                <button onclick="testAddress('清大')">清大</button>
+                <button onclick="testAddress('成大')">成大</button>
+                <button onclick="testAddress('輔大')">輔大</button>
+            </div>
 
-        <div class="test-item">
-            <h3>🏢 商業中心測試</h3>
-            <button onclick="testAddress('信義商圈')">信義商圈</button>
-            <button onclick="testAddress('東區')">東區</button>
-            <button onclick="testAddress('公館')">公館</button>
-            <button onclick="testAddress('師大夜市')">師大夜市</button>
-            <button onclick="testAddress('士林夜市')">士林夜市</button>
-            <button onclick="testAddress('新光三越')">新光三越</button>
-        </div>
+            <div class="test-item">
+                <h3>🏥 醫療機構測試</h3>
+                <button onclick="testAddress('台大醫院')">台大醫院</button>
+                <button onclick="testAddress('榮總')">榮總</button>
+                <button onclick="testAddress('長庚')">長庚</button>
+                <button onclick="testAddress('馬偕')">馬偕</button>
+                <button onclick="testAddress('亞東醫院')">亞東醫院</button>
+            </div>
 
-        <div class="test-item">
-            <h3>🎯 觀光景點測試</h3>
-            <button onclick="testAddress('故宮')">故宮</button>
-            <button onclick="testAddress('中正紀念堂')">中正紀念堂</button>
-            <button onclick="testAddress('龍山寺')">龍山寺</button>
-            <button onclick="testAddress('九份')">九份</button>
-            <button onclick="testAddress('淡水')">淡水</button>
-            <button onclick="testAddress('日月潭')">日月潭</button>
-        </div>
+            <div class="test-item">
+                <h3>🏢 商業中心測試</h3>
+                <button onclick="testAddress('信義商圈')">信義商圈</button>
+                <button onclick="testAddress('東區')">東區</button>
+                <button onclick="testAddress('公館')">公館</button>
+                <button onclick="testAddress('師大夜市')">師大夜市</button>
+                <button onclick="testAddress('士林夜市')">士林夜市</button>
+                <button onclick="testAddress('新光三越')">新光三越</button>
+            </div>
 
-        <div class="test-item">
-            <h3>📝 地址簡寫測試</h3>
-            <button onclick="testAddress('忠孝')">忠孝</button>
-            <button onclick="testAddress('中山')">中山</button>
-            <button onclick="testAddress('北車')">北車</button>
-            <button onclick="testAddress('東區')">東區</button>
-            <button onclick="testAddress('北市')">北市</button>
-            <button onclick="testAddress('新北')">新北</button>
-        </div>
+            <div class="test-item">
+                <h3>🎯 觀光景點測試</h3>
+                <button onclick="testAddress('故宮')">故宮</button>
+                <button onclick="testAddress('中正紀念堂')">中正紀念堂</button>
+                <button onclick="testAddress('龍山寺')">龍山寺</button>
+                <button onclick="testAddress('九份')">九份</button>
+                <button onclick="testAddress('淡水')">淡水</button>
+                <button onclick="testAddress('日月潭')">日月潭</button>
+            </div>
 
-        <div class="test-item">
-            <h3>🌐 混合語言測試</h3>
-            <button onclick="testAddress('Taipei 101')">Taipei 101</button>
-            <button onclick="testAddress('Taiwan University')">Taiwan University</button>
-            <button onclick="testAddress('taipei station')">taipei station</button>
-            <button onclick="testAddress('Taichung city')">Taichung city</button>
-        </div>
+            <div class="test-item">
+                <h3>📝 地址簡寫測試</h3>
+                <button onclick="testAddress('忠孝')">忠孝</button>
+                <button onclick="testAddress('中山')">中山</button>
+                <button onclick="testAddress('北車')">北車</button>
+                <button onclick="testAddress('東區')">東區</button>
+                <button onclick="testAddress('北市')">北市</button>
+                <button onclick="testAddress('新北')">新北</button>
+            </div>
 
-        <div class="test-item" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white;">
-            <h3><i class="fab fa-google"></i> Geocoding API 直接查詢測試</h3>
-            <button onclick="testAddress('新北市新店區北宜路二段421巷2弄43號')" style="background: rgba(255,255,255,0.9); color: #333;">超詳細門牌號測試</button>
-            <button onclick="testAddress('台北市信義區信義路五段7號89樓')" style="background: rgba(255,255,255,0.9); color: #333;">台北101樓層測試</button>
-            <button onclick="testAddress('新北市板橋區縣民大道二段7號')" style="background: rgba(255,255,255,0.9); color: #333;">板橋車站精確測試</button>
-            <button onclick="testAddress('台北101')" style="background: rgba(255,255,255,0.9); color: #333;">地標直接查詢</button>
-            <button onclick="testGoogleMapsDirectly()" style="background: #ff6b6b; color: white; font-weight: bold;">🎯 Geocoding API測試</button>
-        </div>
+            <div class="test-item">
+                <h3>🌐 混合語言測試</h3>
+                <button onclick="testAddress('Taipei 101')">Taipei 101</button>
+                <button onclick="testAddress('Taiwan University')">Taiwan University</button>
+                <button onclick="testAddress('taipei station')">taipei station</button>
+                <button onclick="testAddress('Taichung city')">Taichung city</button>
+            </div>
 
-        <div class="test-item">
-            <h3>國際地址測試</h3>
-            <button onclick="testAddress('北京天安門')">北京天安門</button>
-            <button onclick="testAddress('東京塔')">東京塔</button>
-            <button onclick="testAddress('香港中環')">香港中環</button>
-            <button onclick="testAddress('新加坡濱海灣')">新加坡濱海灣</button>
-            <button onclick="testAddress('Eiffel Tower Paris')">Eiffel Tower Paris</button>
-        </div>
+            <div class="test-item" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white;">
+                <h3><i class="fab fa-google"></i> Geocoding API 直接查詢測試</h3>
+                <button onclick="testAddress('新北市新店區北宜路二段421巷2弄43號')" style="background: rgba(255,255,255,0.9); color: #333;">超詳細門牌號測試</button>
+                <button onclick="testAddress('台北市信義區信義路五段7號89樓')" style="background: rgba(255,255,255,0.9); color: #333;">台北101樓層測試</button>
+                <button onclick="testAddress('新北市板橋區縣民大道二段7號')" style="background: rgba(255,255,255,0.9); color: #333;">板橋車站精確測試</button>
+                <button onclick="testAddress('台北101')" style="background: rgba(255,255,255,0.9); color: #333;">地標直接查詢</button>
+                <button onclick="testGoogleMapsDirectly()" style="background: #ff6b6b; color: white; font-weight: bold;">🎯 Geocoding API測試</button>
+            </div>
 
-        <div class="test-item">
-            <h3>自定義測試</h3>
-            <input type="text" id="customAddress" placeholder="輸入要測試的地址" style="width: 300px; padding: 8px;">
-            <button onclick="testCustomAddress()">測試地址</button>
-        </div>
+            <div class="test-item">
+                <h3>國際地址測試</h3>
+                <button onclick="testAddress('北京天安門')">北京天安門</button>
+                <button onclick="testAddress('東京塔')">東京塔</button>
+                <button onclick="testAddress('香港中環')">香港中環</button>
+                <button onclick="testAddress('新加坡濱海灣')">新加坡濱海灣</button>
+                <button onclick="testAddress('Eiffel Tower Paris')">Eiffel Tower Paris</button>
+            </div>
 
-        <div id="results">
-            <h3>測試結果</h3>
-            <p>點擊上方按鈕開始測試...</p>
+            <div class="test-item">
+                <h3>自定義測試</h3>
+                <input type="text" id="customAddress" placeholder="輸入要測試的地址" style="width: 300px; padding: 8px;">
+                <button onclick="testCustomAddress()">測試地址</button>
+            </div>
+
+            <div id="results" class="results">
+                <h3>測試結果</h3>
+                <p>點擊上方按鈕開始測試...</p>
+            </div>
         </div>
     </div>
 
     <script>
         const results = document.getElementById('results');
 
-        function addResult(address, status, data, error = null) {
+        function addResult(address, status, data, content = null) {
             const div = document.createElement('div');
-            div.className = `result ${status}`;
+            div.className = `result-item ${status}`;
             
-            let html = `<strong>測試地址：</strong>${address}<br>`;
-            html += `<strong>狀態：</strong>${status.toUpperCase()}<br>`;
+            let html = `<h4>${address}</h4>`;
             
-            if (status === 'success' && data) {
-                html += `<strong>經度：</strong>${data.lng}<br>`;
-                html += `<strong>緯度：</strong>${data.lat}<br>`;
-                if (data.displayAddress) {
-                    html += `<strong>完整地址：</strong>${data.displayAddress}<br>`;
+            if (status === 'loading') {
+                html += `<div style="display: flex; align-items: center; gap: 10px; color: #856404;">`;
+                html += `<div class="loading-spinner"></div>`;
+                html += `<span>正在查詢中...</span>`;
+                html += `</div>`;
+            } else if (status === 'success' && data) {
+                html += `<div class="coordinates">`;
+                html += `<strong>WGS84座標：</strong>${data.lat}, ${data.lng}<br>`;
+                const bd09 = CoordinateConverter.wgs84ToBd09(data.lng, data.lat);
+                html += `<strong>BD09座標：</strong>${bd09.lat}, ${bd09.lng}`;
+                html += `</div>`;
+                
+                if (content) {
+                    html += content;
                 }
-            } else if (status === 'error' && error) {
-                html += `<strong>錯誤：</strong>${error}<br>`;
+            } else if (status === 'error') {
+                if (content) {
+                    html += content;
+                }
             }
             
-            html += `<strong>時間：</strong>${new Date().toLocaleTimeString()}<br>`;
+            html += `<div style="margin-top: 10px; color: #666; font-size: 0.9em;">`;
+            html += `<strong>時間：</strong>${new Date().toLocaleTimeString()}`;
+            html += `</div>`;
             
             div.innerHTML = html;
-            results.appendChild(div);
-            results.scrollTop = results.scrollHeight;
+            
+            // 替換或添加結果
+            const existingResult = Array.from(results.children).find(
+                child => child.querySelector('h4')?.textContent === address
+            );
+            
+            if (existingResult) {
+                results.replaceChild(div, existingResult);
+            } else {
+                results.appendChild(div);
+            }
+            
+            // 滾動到最新結果
+            div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         function testCustomAddress() {
@@ -316,12 +518,17 @@
             }
         }
 
-        async function testGoogleMapsDirectly() {
-            const testAddress = '新北市新店區北宜路二段421巷2弄43號';
+        async function testGeocodingApiDirect() {
+            const testAddress = document.getElementById('directTestInput').value.trim();
+            if (!testAddress) {
+                alert('請輸入要測試的地址');
+                return;
+            }
+            
             const apiKey = 'AIzaSyCwJDNIxdoPHzsk_-YI-JUJKdXa96bi0gc';
             
-            addResult('🎯 Geocoding API Direct Test', 'loading', null);
-            console.log('🚀 直接測試Geocoding API...');
+            addResult(`🎯 ${testAddress}`, 'loading', null);
+            console.log('🚀 直接測試Geocoding API:', testAddress);
 
             try {
                 const params = new URLSearchParams({
@@ -329,10 +536,7 @@
                     key: apiKey,
                     region: 'tw',
                     language: 'zh-TW',
-                    components: 'country:TW',
-                    result_type: 'street_address|premise|subpremise|route',
-                    location_type: 'ROOFTOP|RANGE_INTERPOLATED|GEOMETRIC_CENTER',
-                    bounds: '21.8,119.3|25.4,122.1'
+                    components: 'country:TW'
                 });
 
                 const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`);
@@ -344,32 +548,69 @@
                     const result = data.results[0];
                     const coordinates = {
                         lat: result.geometry.location.lat,
-                        lng: result.geometry.location.lng,
-                        displayAddress: result.formatted_address,
-                        locationType: result.geometry.location_type,
-                        placeId: result.place_id,
-                        types: result.types
+                        lng: result.geometry.location.lng
                     };
 
                     const resultText = `
-🎯 Geocoding API 直接查詢結果:
-📍 位置類型: ${result.geometry.location_type}
-📍 座標: ${coordinates.lat}, ${coordinates.lng}
-📍 地址: ${result.formatted_address}
-📍 Place ID: ${result.place_id}
-📍 類型: ${result.types.join(', ')}
+<div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <div style="font-weight: bold; color: #28a745; margin-bottom: 10px;">✅ Geocoding API 查詢成功</div>
+    <div><strong>📍 位置類型：</strong>${result.geometry.location_type}</div>
+    <div><strong>🌐 座標：</strong>${coordinates.lat}, ${coordinates.lng}</div>
+    <div><strong>📮 地址：</strong>${result.formatted_address}</div>
+    <div><strong>🆔 Place ID：</strong>${result.place_id}</div>
+    <div style="margin-top: 10px;"><strong>🏷️ 類型：</strong>${result.types.join(', ')}</div>
+</div>
                     `;
 
-                    addResult('🎯 Geocoding API Direct Test', 'success', coordinates, resultText);
+                    addResult(`🎯 ${testAddress}`, 'success', coordinates, resultText);
                 } else {
-                    const errorMsg = `Geocoding API錯誤: ${data.status} - ${data.error_message || '未知錯誤'}`;
-                    addResult('🎯 Geocoding API Direct Test', 'error', null, errorMsg);
+                    let errorMsg = `❌ Geocoding API 失敗: ${data.status}`;
+                    
+                    if (data.status === 'REQUEST_DENIED') {
+                        errorMsg += `
+<div style="background: #f8d7da; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <div style="font-weight: bold; color: #721c24; margin-bottom: 10px;">🚫 API配置問題</div>
+    <div>請檢查：</div>
+    <ul style="margin: 10px 0 0 20px;">
+        <li>Geocoding API是否已在Google Cloud Console啟用</li>
+        <li>API密鑰是否有效</li>
+        <li>API密鑰是否有使用限制</li>
+    </ul>
+    <div style="margin-top: 10px;"><strong>錯誤詳情：</strong>${data.error_message || '無詳細信息'}</div>
+</div>
+                        `;
+                    } else if (data.status === 'ZERO_RESULTS') {
+                        errorMsg += `
+<div style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <div style="font-weight: bold; color: #856404; margin-bottom: 10px;">⚠️ 找不到地址</div>
+    <div>建議：</div>
+    <ul style="margin: 10px 0 0 20px;">
+        <li>簡化地址（移除門牌號）</li>
+        <li>使用主要道路名稱</li>
+        <li>嘗試知名地標</li>
+    </ul>
+</div>
+                        `;
+                    }
+                    
+                    addResult(`🎯 ${testAddress}`, 'error', null, errorMsg);
                 }
 
             } catch (error) {
                 console.error('Geocoding API測試失敗:', error);
-                addResult('🎯 Geocoding API Direct Test', 'error', null, `網絡錯誤: ${error.message}`);
+                const errorMsg = `
+<div style="background: #f8d7da; padding: 15px; border-radius: 8px; margin: 10px 0;">
+    <div style="font-weight: bold; color: #721c24; margin-bottom: 10px;">🌐 網絡錯誤</div>
+    <div><strong>錯誤：</strong>${error.message}</div>
+    <div style="margin-top: 10px;">請檢查網絡連接或CORS設置</div>
+</div>
+                `;
+                addResult(`🎯 ${testAddress}`, 'error', null, errorMsg);
             }
+        }
+
+        function quickTest(address) {
+            testAddress(address);
         }
 
         // 頁面加載時的說明
