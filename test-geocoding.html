@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地址查詢測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 3px;
+            word-break: break-all;
+        }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .loading { background: #fff3cd; border-color: #ffeaa7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 地址查詢API測試工具</h1>
+        <p>這個工具用來測試不同的地理編碼API服務，幫助診斷地址查詢問題。</p>
+
+        <div class="test-item">
+            <h3>測試地址清單</h3>
+            <button onclick="testAddress('台北101')">台北101</button>
+            <button onclick="testAddress('北京天安門')">北京天安門</button>
+            <button onclick="testAddress('東京塔')">東京塔</button>
+            <button onclick="testAddress('香港中環')">香港中環</button>
+            <button onclick="testAddress('新加坡濱海灣')">新加坡濱海灣</button>
+            <button onclick="testAddress('Eiffel Tower Paris')">Eiffel Tower Paris</button>
+        </div>
+
+        <div class="test-item">
+            <h3>自定義測試</h3>
+            <input type="text" id="customAddress" placeholder="輸入要測試的地址" style="width: 300px; padding: 8px;">
+            <button onclick="testCustomAddress()">測試地址</button>
+        </div>
+
+        <div id="results">
+            <h3>測試結果</h3>
+            <p>點擊上方按鈕開始測試...</p>
+        </div>
+    </div>
+
+    <script>
+        const results = document.getElementById('results');
+
+        function addResult(address, status, data, error = null) {
+            const div = document.createElement('div');
+            div.className = `result ${status}`;
+            
+            let html = `<strong>測試地址：</strong>${address}<br>`;
+            html += `<strong>狀態：</strong>${status.toUpperCase()}<br>`;
+            
+            if (status === 'success' && data) {
+                html += `<strong>經度：</strong>${data.lng}<br>`;
+                html += `<strong>緯度：</strong>${data.lat}<br>`;
+                if (data.displayAddress) {
+                    html += `<strong>完整地址：</strong>${data.displayAddress}<br>`;
+                }
+            } else if (status === 'error' && error) {
+                html += `<strong>錯誤：</strong>${error}<br>`;
+            }
+            
+            html += `<strong>時間：</strong>${new Date().toLocaleTimeString()}<br>`;
+            
+            div.innerHTML = html;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function testCustomAddress() {
+            const address = document.getElementById('customAddress').value.trim();
+            if (!address) {
+                alert('請輸入地址');
+                return;
+            }
+            testAddress(address);
+        }
+
+        async function testAddress(address) {
+            addResult(address, 'loading', null);
+            console.log(`開始測試地址: ${address}`);
+
+            const apis = [
+                {
+                    name: 'OpenStreetMap Primary',
+                    url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&accept-language=zh-TW,zh,en&addressdetails=1&bounded=0&dedupe=0`,
+                },
+                {
+                    name: 'OpenStreetMap Alternative',
+                    url: `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(address)}&limit=3&accept-language=zh,en&addressdetails=1`,
+                },
+                {
+                    name: 'OpenStreetMap Asia',
+                    url: `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=3&countrycodes=tw,cn,hk,mo,jp,kr,sg,my,th,ph&accept-language=zh,en`,
+                }
+            ];
+
+            let success = false;
+            let lastError = null;
+
+            for (const api of apis) {
+                try {
+                    console.log(`嘗試 ${api.name}...`);
+                    
+                    const response = await fetch(api.url, {
+                        method: 'GET',
+                        headers: {
+                            'User-Agent': 'MapCoordinateSystem/1.0',
+                            'Accept': 'application/json'
+                        },
+                        mode: 'cors',
+                        cache: 'default'
+                    });
+
+                    console.log(`${api.name} 響應狀態: ${response.status}`);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    console.log(`${api.name} 響應數據:`, data);
+
+                    if (data && Array.isArray(data) && data.length > 0) {
+                        const result = data[0];
+                        if (result.lat && result.lon) {
+                            const coordinates = {
+                                lng: parseFloat(result.lon),
+                                lat: parseFloat(result.lat),
+                                displayAddress: result.display_name || result.name || address
+                            };
+                            
+                            addResult(address, 'success', coordinates);
+                            console.log(`${api.name} 成功:`, coordinates);
+                            success = true;
+                            break;
+                        }
+                    }
+
+                } catch (error) {
+                    console.error(`${api.name} 失敗:`, error);
+                    lastError = error.message;
+                    continue;
+                }
+            }
+
+            if (!success) {
+                addResult(address, 'error', null, lastError || '所有API都無法找到結果');
+            }
+        }
+
+        // 頁面加載時的說明
+        window.addEventListener('load', () => {
+            console.log('地址查詢測試工具已載入');
+            console.log('使用方法：點擊測試按鈕或輸入自定義地址');
+            console.log('查看瀏覽器開發者工具控制台獲取詳細日誌');
+        });
+    </script>
+</body>
+</html> 

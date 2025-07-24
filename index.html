@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地圖座標系統轉換工具</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-map-marked-alt"></i> 地圖座標系統轉換工具</h1>
+            <p class="subtitle">支持當前位置獲取和地址查詢，自動轉換Google座標與BD座標</p>
+        </header>
+
+        <main>
+            <!-- 當前位置功能 -->
+            <div class="card">
+                <h2><i class="fas fa-location-arrow"></i> 獲取當前位置</h2>
+                <p class="description">點擊按鈕獲取您的當前地理位置信息</p>
+                <button id="getCurrentLocation" class="btn-primary">
+                    <i class="fas fa-crosshairs"></i> 獲取當前位置
+                </button>
+                <div id="currentLocationResult" class="result-container"></div>
+            </div>
+
+            <!-- 地址查詢功能 -->
+            <div class="card">
+                <h2><i class="fas fa-search-location"></i> 地址查詢</h2>
+                <p class="description">輸入地址來獲取對應的座標信息</p>
+                <div class="search-container">
+                    <input type="text" id="addressInput" placeholder="請輸入地址，例如：台北101" class="address-input">
+                    <button id="searchAddress" class="btn-secondary">
+                        <i class="fas fa-search"></i> 查詢座標
+                    </button>
+                </div>
+                <div id="addressSearchResult" class="result-container"></div>
+            </div>
+
+            <!-- 座標轉換功能 -->
+            <div class="card">
+                <h2><i class="fas fa-exchange-alt"></i> 座標轉換</h2>
+                <p class="description">直接輸入座標進行不同座標系統間的轉換</p>
+                <div class="coordinate-inputs">
+                    <div class="input-group">
+                        <label for="latInput">緯度 (Latitude):</label>
+                        <input type="number" id="latInput" placeholder="例如：25.0330" step="any" class="coord-input">
+                    </div>
+                    <div class="input-group">
+                        <label for="lngInput">經度 (Longitude):</label>
+                        <input type="number" id="lngInput" placeholder="例如：121.5654" step="any" class="coord-input">
+                    </div>
+                    <div class="input-group">
+                        <label for="coordSystem">座標系統:</label>
+                        <select id="coordSystem" class="coord-select">
+                            <option value="wgs84">WGS84 (Google座標)</option>
+                            <option value="bd09">BD09座標</option>
+                        </select>
+                    </div>
+                    <button id="convertCoordinates" class="btn-secondary">
+                        <i class="fas fa-sync-alt"></i> 轉換座標
+                    </button>
+                </div>
+                <div id="coordinateConvertResult" class="result-container"></div>
+            </div>
+        </main>
+
+        <!-- 載入提示 -->
+        <div id="loadingOverlay" class="loading-overlay">
+            <div class="spinner"></div>
+            <p>正在處理中...</p>
+        </div>
+
+        <!-- 錯誤提示 -->
+        <div id="errorModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3><i class="fas fa-exclamation-triangle"></i> 錯誤提示</h3>
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    <script src="coordinate-converter.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
