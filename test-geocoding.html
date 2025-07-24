@@ -139,6 +139,14 @@
             <button onclick="testAddress('Taichung city')">Taichung city</button>
         </div>
 
+        <div class="test-item" style="background: linear-gradient(135deg, #4285f4 0%, #34a853 100%); color: white;">
+            <h3><i class="fab fa-google"></i> Google Maps 超高精度測試</h3>
+            <button onclick="testAddress('新北市新店區北宜路二段421巷2弄43號')" style="background: rgba(255,255,255,0.9); color: #333;">超詳細門牌號測試</button>
+            <button onclick="testAddress('台北市信義區信義路五段7號89樓')" style="background: rgba(255,255,255,0.9); color: #333;">台北101樓層測試</button>
+            <button onclick="testAddress('新北市板橋區縣民大道二段7號')" style="background: rgba(255,255,255,0.9); color: #333;">板橋車站精確測試</button>
+            <button onclick="testGoogleMapsDirectly()" style="background: #ff6b6b; color: white; font-weight: bold;">🎯 直接測試Google Maps API</button>
+        </div>
+
         <div class="test-item">
             <h3>國際地址測試</h3>
             <button onclick="testAddress('北京天安門')">北京天安門</button>
@@ -304,6 +312,62 @@
 
             if (!success) {
                 addResult(address, 'error', null, lastError || '所有API都無法找到結果');
+            }
+        }
+
+        async function testGoogleMapsDirectly() {
+            const testAddress = '新北市新店區北宜路二段421巷2弄43號';
+            const apiKey = 'CI3loKQXylsWgA9NoZtXVPLeBJA=';
+            
+            addResult('🎯 Google Maps Direct Test', 'loading', null);
+            console.log('🚀 直接測試Google Maps API...');
+
+            try {
+                const params = new URLSearchParams({
+                    address: testAddress,
+                    key: apiKey,
+                    region: 'tw',
+                    language: 'zh-TW',
+                    components: 'country:TW',
+                    result_type: 'street_address|premise|subpremise|route',
+                    location_type: 'ROOFTOP|RANGE_INTERPOLATED|GEOMETRIC_CENTER',
+                    bounds: '21.8,119.3|25.4,122.1'
+                });
+
+                const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`);
+                const data = await response.json();
+
+                console.log('Google Maps API完整響應:', data);
+
+                if (data.status === 'OK' && data.results && data.results.length > 0) {
+                    const result = data.results[0];
+                    const coordinates = {
+                        lat: result.geometry.location.lat,
+                        lng: result.geometry.location.lng,
+                        displayAddress: result.formatted_address,
+                        locationType: result.geometry.location_type,
+                        placeId: result.place_id,
+                        types: result.types
+                    };
+
+                    const resultText = `
+🎯 Google Maps 超高精度結果:
+📍 位置類型: ${result.geometry.location_type}
+📍 座標: ${coordinates.lat}, ${coordinates.lng}
+📍 地址: ${result.formatted_address}
+📍 Place ID: ${result.place_id}
+📍 類型: ${result.types.join(', ')}
+                    `;
+
+                    addResult('🎯 Google Maps Direct Test', 'success', coordinates, resultText);
+                } else {
+                    const errorMsg = `Google Maps API錯誤: ${data.status} - ${data.error_message || '未知錯誤'}`;
+                    addResult('🎯 Google Maps Direct Test', 'error', null, errorMsg);
+                }
+
+            } catch (error) {
+                console.error('Google Maps API測試失敗:', error);
+                addResult('🎯 Google Maps Direct Test', 'error', null, `網絡錯誤: ${error.message}`);
             }
         }
 

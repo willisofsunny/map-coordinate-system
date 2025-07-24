@@ -12,6 +12,9 @@
         <header>
             <h1><i class="fas fa-map-marked-alt"></i> 地圖座標系統轉換工具</h1>
             <p class="subtitle">支持當前位置獲取和地址查詢，自動轉換Google座標與BD座標</p>
+            <div class="api-status" id="api-status" style="display: none;">
+                <i class="fab fa-google"></i> Google Maps 超高精度模式已啟動
+            </div>
         </header>
 
         <main>
@@ -63,6 +66,28 @@
                     </button>
                 </div>
                 <div id="coordinateConvertResult" class="result-container"></div>
+            </div>
+
+            <!-- 工具和配置 -->
+            <div class="card">
+                <h2><i class="fas fa-tools"></i> 工具和配置</h2>
+                <p class="description">高級功能和系統配置選項</p>
+                <div class="tools-container">
+                    <a href="test-geocoding.html" target="_blank" class="tool-link">
+                        <i class="fas fa-flask"></i>
+                        <div>
+                            <h4>地址查詢測試工具</h4>
+                            <p>測試不同地址類型的查詢結果</p>
+                        </div>
+                    </a>
+                    <a href="api-config.html" target="_blank" class="tool-link">
+                        <i class="fas fa-cog"></i>
+                        <div>
+                            <h4>API配置中心</h4>
+                            <p>配置高精度地理編碼API密鑰</p>
+                        </div>
+                    </a>
+                </div>
             </div>
         </main>
 
