@@ -191,3 +191,23 @@ MapCoordinateSystem/
 ---
 
 **提示**：為獲得最佳體驗，建議在HTTPS環境下使用本工具，因為現代瀏覽器在HTTP環境下可能限制地理位置API的使用。 
+
+## Geocoding API 代理（Node.js）
+
+本專案提供 `server.js` 作為 Geocoding API 代理，避免 API Key 暴露於前端。
+
+### 如何在 Render 部署
+1. 新增 Web Service，選擇 Node.js。
+2. 設定環境變數 `GEOCODING_API_KEY`，值為你的 Google Geocoding API Key。
+3. 部署 `server.js`。
+
+### 前端呼叫方式
+將原本直接呼叫 Google API 的程式碼，改為：
+
+```js
+fetch('https://你的-render-domain.onrender.com/api/geocode?address=地址')
+  .then(res => res.json())
+  .then(data => { /* 處理結果 */ });
+```
+
+--- 
