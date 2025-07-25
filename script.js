@@ -3,6 +3,9 @@
  * 支持當前位置獲取、地址查詢和座標轉換
  */
 
+// 在檔案開頭加入：
+import API_KEY from './config.js';
+
 class MapCoordinateSystem {
     constructor() {
         this.initializeElements();
@@ -2497,76 +2500,21 @@ class MapCoordinateSystem {
      * 直接Geocoding API查詢 - 簡化版本
      */
     async directGeocodingApiQuery(address) {
-        const apiKey = this.getGoogleMapsApiKey();
-        if (!apiKey) {
-            this.log('Geocoding API密鑰未配置');
-            return null;
-        }
-
         try {
-            this.log('🚀 Geocoding API 直接查詢:', address);
-            
-            const params = new URLSearchParams({
-                address: address,
-                key: apiKey,
-                region: 'tw',
-                language: 'zh-TW',
-                components: 'country:TW'
-            });
-
-            const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`, {
+            this.log('🚀 Geocoding API 代理查詢:', address);
+            const params = new URLSearchParams({ address });
+            const response = await fetch(`https://backend-geocode-proxy.onrender.com/api/geocode?${params}`, {
                 method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
+                headers: { 'Accept': 'application/json' }
             });
-
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-
             const data = await response.json();
-            this.log('📍 Geocoding API 響應:', data);
-
-            if (data.status === 'OK' && data.results && data.results.length > 0) {
-                const result = data.results[0];
-                const coordinates = {
-                    lng: result.geometry.location.lng,
-                    lat: result.geometry.location.lat,
-                    displayAddress: result.formatted_address,
-                    confidence: this.calculateGeocodingConfidence(result),
-                    source: 'Geocoding API 直接查詢',
-                    locationType: result.geometry.location_type,
-                    placeId: result.place_id,
-                    types: result.types
-                };
-
-                this.log('✅ Geocoding API 查詢成功:', coordinates);
-                return coordinates;
-            } else {
-                // 自動降級條件
-                const downgradeErrors = ['OVER_QUERY_LIMIT', 'REQUEST_DENIED', 'INVALID_REQUEST', 'UNKNOWN_ERROR'];
-                if (downgradeErrors.includes(data.status)) {
-                    this.log(`⚠️ Geocoding API限流/權限錯誤(${data.status})，自動切換到備用查詢...`);
-                    // 自動切換到備用查詢
-                    const backupResult = await this.advancedAddressGeocode(address);
-                    if (backupResult) {
-                        backupResult.source = '備用查詢 (自動降級)';
-                        backupResult.isBackup = true;
-                        return backupResult;
-                    }
-                }
-                this.log(`❌ Geocoding API 失敗: ${data.status} - ${data.error_message || '無結果'}`);
-                // 顯示具體的API錯誤信息
-                if (data.status === 'REQUEST_DENIED') {
-                    this.showError('Geocoding API 配置錯誤', 
-                        `請檢查：\n• API密鑰是否有效\n• Geocoding API是否已啟用\n• API密鑰是否有使用限制\n\n錯誤詳情：${data.error_message || '未知錯誤'}`);
-                }
-                return null;
-            }
-
-        } catch (error) {
-            this.log('❌ Geocoding API 網絡錯誤:', error.message);
+            this.log('📍 Geocoding API 代理響應:', data);
+            return data;
+        } catch (err) {
+            this.log('Geocoding 代理查詢失敗:', err);
             return null;
         }
     }
@@ -2653,65 +2601,21 @@ class MapCoordinateSystem {
      * 直接Google Maps地址查詢 - 優先調用
      */
     async directGoogleMapsGeocode(address) {
-        const apiKey = this.getGoogleMapsApiKey();
-        if (!apiKey) {
-            this.log('Google Maps API密鑰未配置，跳過直接查詢');
-            return null;
-        }
-
         try {
-            this.log('🚀 Google Maps 直接查詢:', address);
-            
-            const params = new URLSearchParams({
-                address: address,
-                key: apiKey,
-                region: 'tw',
-                language: 'zh-TW',
-                components: 'country:TW',
-                result_type: 'street_address|premise|subpremise|route|neighborhood|sublocality',
-                location_type: 'ROOFTOP|RANGE_INTERPOLATED|GEOMETRIC_CENTER|APPROXIMATE',
-                bounds: '21.8,119.3|25.4,122.1'
-            });
-
-            const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`, {
+            this.log('🚀 Geocoding API 代理查詢:', address);
+            const params = new URLSearchParams({ address });
+            const response = await fetch(`https://backend-geocode-proxy.onrender.com/api/geocode?${params}`, {
                 method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
+                headers: { 'Accept': 'application/json' }
             });
-
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-
             const data = await response.json();
-            this.log('📍 Google Maps 直接查詢響應:', data);
-
-            if (data.status === 'OK' && data.results && data.results.length > 0) {
-                const result = data.results[0];
-                const coordinates = {
-                    lng: result.geometry.location.lng,
-                    lat: result.geometry.location.lat,
-                    displayAddress: result.formatted_address,
-                    confidence: this.calculateGoogleMapsConfidence(result),
-                    source: 'Google Maps 直接查詢',
-                    locationType: result.geometry.location_type,
-                    addressComponents: result.address_components,
-                    types: result.types,
-                    placeId: result.place_id,
-                    rawData: result,
-                    isGoogleMaps: true
-                };
-
-                this.log('✅ Google Maps 直接查詢成功:', coordinates);
-                return coordinates;
-            } else {
-                this.log(`❌ Google Maps 直接查詢失敗: ${data.status} - ${data.error_message || '無結果'}`);
-                return null;
-            }
-
-        } catch (error) {
-            this.log('❌ Google Maps 直接查詢錯誤:', error.message);
+            this.log('📍 Geocoding API 代理響應:', data);
+            return data;
+        } catch (err) {
+            this.log('Geocoding 代理查詢失敗:', err);
             return null;
         }
     }
@@ -2720,60 +2624,21 @@ class MapCoordinateSystem {
      * Google Maps API查詢（高精度模式）
      */
     async queryGoogleMapsApi(variant, apiConfig) {
-        const apiKey = this.getGoogleMapsApiKey();
-        if (!apiKey) {
-            this.log('Google Maps API密鑰未配置');
-            return null;
-        }
-
         try {
-            const params = new URLSearchParams({
-                address: variant,
-                key: apiKey,
-                region: 'tw',
-                language: 'zh-TW',
-                components: 'country:TW', // 限制台灣地區
-                result_type: 'street_address|premise|subpremise|route', // 高精度結果類型
-                location_type: 'ROOFTOP|RANGE_INTERPOLATED|GEOMETRIC_CENTER', // 精確位置類型
-                bounds: '21.8,119.3|25.4,122.1' // 台灣邊界範圍
-            });
-
-            const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`, {
+            this.log('🚀 Geocoding API 代理查詢:', variant);
+            const params = new URLSearchParams({ address: variant });
+            const response = await fetch(`https://backend-geocode-proxy.onrender.com/api/geocode?${params}`, {
                 method: 'GET',
-                headers: {
-                    'Accept': 'application/json'
-                }
+                headers: { 'Accept': 'application/json' }
             });
-
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
-
             const data = await response.json();
-            this.log('Google Maps API響應:', data);
-
-            if (data.status === 'OK' && data.results && data.results.length > 0) {
-                const result = data.results[0];
-                return {
-                    lng: result.geometry.location.lng,
-                    lat: result.geometry.location.lat,
-                    displayAddress: result.formatted_address,
-                    confidence: this.calculateGoogleMapsConfidence(result),
-                    source: 'Google Maps Ultra Precision',
-                    locationType: result.geometry.location_type,
-                    addressComponents: result.address_components,
-                    types: result.types,
-                    placeId: result.place_id,
-                    rawData: result,
-                    isGoogleMaps: true
-                };
-            } else {
-                this.log(`Google Maps API錯誤: ${data.status} - ${data.error_message || '未知錯誤'}`);
-                return null;
-            }
-
-        } catch (error) {
-            this.log('Google Maps API查詢失敗:', error.message);
+            this.log('Geocoding API 代理響應:', data);
+            return data;
+        } catch (err) {
+            this.log('Geocoding 代理查詢失敗:', err);
             return null;
         }
     }
@@ -2814,7 +2679,7 @@ class MapCoordinateSystem {
      */
     hasGoogleMapsApiKey() {
         // 使用內建的Geocoding API密鑰或用戶自定義的密鑰
-        const builtInKey = 'AIzaSyCwJDNIxdoPHzsk_-YI-JUJKdXa96bi0gc';
+        const builtInKey = API_KEY;
         const userKey = localStorage.getItem('google_maps_api_key');
         return builtInKey || (userKey && userKey.trim().length > 0);
     }
@@ -2823,7 +2688,7 @@ class MapCoordinateSystem {
      * 獲取Google Maps API密鑰
      */
     getGoogleMapsApiKey() {
-        const builtInKey = 'AIzaSyCwJDNIxdoPHzsk_-YI-JUJKdXa96bi0gc';
+        const builtInKey = API_KEY;
         const userKey = localStorage.getItem('google_maps_api_key');
         return userKey && userKey.trim().length > 0 ? userKey : builtInKey;
     }
