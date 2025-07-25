@@ -2512,9 +2512,25 @@ class MapCoordinateSystem {
             }
             const data = await response.json();
             this.log('📍 Geocoding API 代理響應:', data);
-            return data;
+            if (data.status === 'OK' && data.results && data.results.length > 0) {
+                const result = data.results[0];
+                return {
+                    lng: result.geometry.location.lng,
+                    lat: result.geometry.location.lat,
+                    displayAddress: result.formatted_address,
+                    confidence: 1,
+                    source: 'Geocoding API 代理查詢',
+                    locationType: result.geometry.location_type,
+                    placeId: result.place_id,
+                    types: result.types
+                };
+            } else {
+                this.showError('查無結果或API錯誤：' + (data.error_message || data.status));
+                return null;
+            }
         } catch (err) {
             this.log('Geocoding 代理查詢失敗:', err);
+            this.showError('Geocoding 代理查詢失敗：' + err.message);
             return null;
         }
     }
@@ -2613,9 +2629,25 @@ class MapCoordinateSystem {
             }
             const data = await response.json();
             this.log('📍 Geocoding API 代理響應:', data);
-            return data;
+            if (data.status === 'OK' && data.results && data.results.length > 0) {
+                const result = data.results[0];
+                return {
+                    lng: result.geometry.location.lng,
+                    lat: result.geometry.location.lat,
+                    displayAddress: result.formatted_address,
+                    confidence: 1,
+                    source: 'Geocoding API 代理查詢',
+                    locationType: result.geometry.location_type,
+                    placeId: result.place_id,
+                    types: result.types
+                };
+            } else {
+                this.showError('查無結果或API錯誤：' + (data.error_message || data.status));
+                return null;
+            }
         } catch (err) {
             this.log('Geocoding 代理查詢失敗:', err);
+            this.showError('Geocoding 代理查詢失敗：' + err.message);
             return null;
         }
     }
@@ -2636,9 +2668,25 @@ class MapCoordinateSystem {
             }
             const data = await response.json();
             this.log('Geocoding API 代理響應:', data);
-            return data;
+            if (data.status === 'OK' && data.results && data.results.length > 0) {
+                const result = data.results[0];
+                return {
+                    lng: result.geometry.location.lng,
+                    lat: result.geometry.location.lat,
+                    displayAddress: result.formatted_address,
+                    confidence: 1,
+                    source: 'Geocoding API 代理查詢',
+                    locationType: result.geometry.location_type,
+                    placeId: result.place_id,
+                    types: result.types
+                };
+            } else {
+                this.showError('查無結果或API錯誤：' + (data.error_message || data.status));
+                return null;
+            }
         } catch (err) {
             this.log('Geocoding 代理查詢失敗:', err);
+            this.showError('Geocoding 代理查詢失敗：' + err.message);
             return null;
         }
     }
