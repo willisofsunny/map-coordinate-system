@@ -1793,23 +1793,27 @@ class MapCoordinateSystem {
         let headerText = 'Geocoding API 查詢結果';
         let addressInfo = '';
         let apiInfo = '';
+        let backupInfo = '';
         
+        if (data.wgs84.isBackup) {
+            backupInfo = `<div style=\"background:#fff3cd;border-left:4px solid #ffc107;padding:10px 15px;margin-bottom:10px;border-radius:6px;\"><strong>⚠️ 已自動切換到備用查詢</strong>（Google API限流/權限問題時自動降級）</div>`;
+        }
         // 處理原始地址與找到地址不同的情況（簡化查詢）
         if (data.wgs84.originalAddress && data.wgs84.originalAddress !== data.address) {
             headerIcon = 'fas fa-search';
             headerText = 'Geocoding API 簡化查詢結果';
             
             addressInfo = `
-                <div style="background-color: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 15px; margin: 15px 0;">
-                    <div style="color: #1976d2; font-weight: bold; margin-bottom: 8px;">📍 地址簡化查詢</div>
-                    <div style="margin-bottom: 5px;"><strong>您輸入：</strong>${data.wgs84.originalAddress}</div>
+                <div style=\"background-color: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 15px; margin: 15px 0;\">
+                    <div style=\"color: #1976d2; font-weight: bold; margin-bottom: 8px;\">📍 地址簡化查詢</div>
+                    <div style=\"margin-bottom: 5px;\"><strong>您輸入：</strong>${data.wgs84.originalAddress}</div>
                     <div><strong>系統查詢：</strong>${data.address}</div>
                 </div>
             `;
         } else {
             addressInfo = `
-                <p style="margin: 10px 0;"><strong>查詢地址：</strong>${data.inputAddress || data.address}</p>
-                <p style="margin: 10px 0;"><strong>找到地址：</strong>${data.address}</p>
+                <p style=\"margin: 10px 0;\"><strong>查詢地址：</strong>${data.inputAddress || data.address}</p>
+                <p style=\"margin: 10px 0;\"><strong>找到地址：</strong>${data.address}</p>
             `;
         }
         
@@ -1820,30 +1824,30 @@ class MapCoordinateSystem {
             const locationTypeText = this.getLocationTypeText(data.wgs84.locationType);
             
             apiInfo = `
-                <div style="background-color: #f8f9fa; border-left: 4px solid #4285f4; padding: 15px; margin: 15px 0; border-radius: 4px;">
-                    <div style="font-weight: bold; color: #4285f4; margin-bottom: 10px;">
-                        <i class="fab fa-google"></i> ${data.wgs84.source}
+                <div style=\"background-color: #f8f9fa; border-left: 4px solid #4285f4; padding: 15px; margin: 15px 0; border-radius: 4px;\">
+                    <div style=\"font-weight: bold; color: #4285f4; margin-bottom: 10px;\">
+                        <i class=\"fab fa-google\"></i> ${data.wgs84.source}
                     </div>
-                    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                        <div style="color: #666;">
+                    <div style=\"display: flex; gap: 20px; flex-wrap: wrap;\">
+                        <div style=\"color: #666;\">
                             <strong>定位類型：</strong>${locationTypeText}
                         </div>
-                        <div style="color: ${confidenceColor};">
+                        <div style=\"color: ${confidenceColor};\">
                             <strong>置信度：</strong>${(data.wgs84.confidence * 100).toFixed(0)}%
                         </div>
                     </div>
-                    ${data.wgs84.placeId ? `<div style="margin-top: 8px; color: #666; font-size: 0.9em;"><strong>Place ID：</strong>${data.wgs84.placeId}</div>` : ''}
+                    ${data.wgs84.placeId ? `<div style=\"margin-top: 8px; color: #666; font-size: 0.9em;\"><strong>Place ID：</strong>${data.wgs84.placeId}</div>` : ''}
                 </div>
             `;
         }
         
         const html = `
-            <div class="result-item">
-                <h3><i class="${headerIcon}"></i> ${headerText}</h3>
+            <div class=\"result-item\">${backupInfo}
+                <h3><i class=\"${headerIcon}\"></i> ${headerText}</h3>
                 ${addressInfo}
                 ${apiInfo}
                 
-                <div class="coordinate-info">
+                <div class=\"coordinate-info\">
                     <div class="coord-item">
                         <h4><i class="fas fa-globe"></i> WGS84座標 (Google座標)</h4>
                         <p>經度：${CoordinateConverter.formatCoordinate(data.wgs84.lng)}</p>
@@ -2540,8 +2544,19 @@ class MapCoordinateSystem {
                 this.log('✅ Geocoding API 查詢成功:', coordinates);
                 return coordinates;
             } else {
+                // 自動降級條件
+                const downgradeErrors = ['OVER_QUERY_LIMIT', 'REQUEST_DENIED', 'INVALID_REQUEST', 'UNKNOWN_ERROR'];
+                if (downgradeErrors.includes(data.status)) {
+                    this.log(`⚠️ Geocoding API限流/權限錯誤(${data.status})，自動切換到備用查詢...`);
+                    // 自動切換到備用查詢
+                    const backupResult = await this.advancedAddressGeocode(address);
+                    if (backupResult) {
+                        backupResult.source = '備用查詢 (自動降級)';
+                        backupResult.isBackup = true;
+                        return backupResult;
+                    }
+                }
                 this.log(`❌ Geocoding API 失敗: ${data.status} - ${data.error_message || '無結果'}`);
-                
                 // 顯示具體的API錯誤信息
                 if (data.status === 'REQUEST_DENIED') {
                     this.showError('Geocoding API 配置錯誤', 
