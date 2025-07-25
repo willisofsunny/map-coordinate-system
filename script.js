@@ -3,9 +3,6 @@
  * 支持當前位置獲取、地址查詢和座標轉換
  */
 
-// 在檔案開頭加入：
-import API_KEY from './config.js';
-
 class MapCoordinateSystem {
     constructor() {
         this.initializeElements();
