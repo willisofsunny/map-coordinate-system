@@ -2759,19 +2759,17 @@ class MapCoordinateSystem {
      * 檢查是否有Google Maps API密鑰
      */
     hasGoogleMapsApiKey() {
-        // 使用內建的Geocoding API密鑰或用戶自定義的密鑰
-        const builtInKey = API_KEY;
+        // 只檢查用戶自定義的密鑰
         const userKey = localStorage.getItem('google_maps_api_key');
-        return builtInKey || (userKey && userKey.trim().length > 0);
+        return userKey && userKey.trim().length > 0;
     }
 
     /**
      * 獲取Google Maps API密鑰
      */
     getGoogleMapsApiKey() {
-        const builtInKey = API_KEY;
         const userKey = localStorage.getItem('google_maps_api_key');
-        return userKey && userKey.trim().length > 0 ? userKey : builtInKey;
+        return userKey && userKey.trim().length > 0 ? userKey : null;
     }
 
     /**
