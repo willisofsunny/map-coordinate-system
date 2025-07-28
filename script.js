@@ -1777,6 +1777,18 @@ class MapCoordinateSystem {
                         <p class="small">度分秒：${CoordinateConverter.toDegreeMinuteSecond(data.bd09.lng, 'lng')}, ${CoordinateConverter.toDegreeMinuteSecond(data.bd09.lat, 'lat')}</p>
                     </div>
                 </div>
+                
+                <div class="action-buttons">
+                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.wgs84.lng},${data.wgs84.lat}', 'WGS84座標')">
+                        <i class="fas fa-copy"></i> 複製 WGS84座標
+                    </button>
+                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.bd09.lng},${data.bd09.lat}', 'BD09座標')">
+                        <i class="fas fa-copy"></i> 複製 BD09座標
+                    </button>
+                    <button class="action-btn map-btn" onclick="openInGoogleMaps(${data.wgs84.lat}, ${data.wgs84.lng})">
+                        <i class="fab fa-google"></i> 在Google Map查看
+                    </button>
+                </div>
             </div>
         `;
 
@@ -1861,6 +1873,18 @@ class MapCoordinateSystem {
                         <p>緯度：${CoordinateConverter.formatCoordinate(data.bd09.lat)}</p>
                         <p class="small">度分秒：${CoordinateConverter.toDegreeMinuteSecond(data.bd09.lng, 'lng')}, ${CoordinateConverter.toDegreeMinuteSecond(data.bd09.lat, 'lat')}</p>
                     </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.wgs84.lng},${data.wgs84.lat}', 'WGS84座標')">
+                        <i class="fas fa-copy"></i> 複製 WGS84座標
+                    </button>
+                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.bd09.lng},${data.bd09.lat}', 'BD09座標')">
+                        <i class="fas fa-copy"></i> 複製 BD09座標
+                    </button>
+                    <button class="action-btn map-btn" onclick="openInGoogleMaps(${data.wgs84.lat}, ${data.wgs84.lng})">
+                        <i class="fab fa-google"></i> 在Google Map查看
+                    </button>
                 </div>
             </div>
         `;
@@ -2134,6 +2158,18 @@ class MapCoordinateSystem {
                         <p>緯度：${CoordinateConverter.formatCoordinate(data.bd09.lat)}</p>
                         <p class="small">度分秒：${CoordinateConverter.toDegreeMinuteSecond(data.bd09.lng, 'lng')}, ${CoordinateConverter.toDegreeMinuteSecond(data.bd09.lat, 'lat')}</p>
                     </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.wgs84.lng},${data.wgs84.lat}', 'WGS84座標')">
+                        <i class="fas fa-copy"></i> 複製 WGS84座標
+                    </button>
+                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.bd09.lng},${data.bd09.lat}', 'BD09座標')">
+                        <i class="fas fa-copy"></i> 複製 BD09座標
+                    </button>
+                    <button class="action-btn map-btn" onclick="openInGoogleMaps(${data.wgs84.lat}, ${data.wgs84.lng})">
+                        <i class="fab fa-google"></i> 在Google Map查看
+                    </button>
                 </div>
                 
                 <div class="coord-item" style="margin-top: 15px;">
@@ -3105,29 +3141,96 @@ class MapCoordinateSystem {
     }
 }
 
-// 頁面加載完成後初始化應用
-document.addEventListener('DOMContentLoaded', () => {
-    new MapCoordinateSystem();
+// 全局函數：複製到剪貼板
+function copyToClipboard(text, type) {
+    navigator.clipboard.writeText(text).then(() => {
+        showCopySuccess(type);
+    }).catch(err => {
+        console.error('複製失敗:', err);
+        // 降級方案：使用傳統的複製方法
+        fallbackCopyToClipboard(text, type);
+    });
+}
 
-    // 添加版權信息
-    console.log(`
-╔══════════════════════════════════════════════════════════════╗
-║                    地圖座標系統轉換工具                         ║
-║                                                              ║
-║ 支持功能：                                                    ║
-║ • 獲取當前位置並轉換座標                                      ║
-║ • 地址查詢並獲取座標                                          ║
-║ • WGS84 (Google座標) 與 BD09座標 互轉                        ║
-║                                                              ║
-║ 技術特性：                                                    ║
-║ • 純前端實現，無需後端服務                                    ║
-║ • 響應式設計，支持行動裝置                                    ║
-║ • 高精度座標轉換算法                                          ║
-║                                                              ║
-║ 測試工具：打開 test-geocoding.html 進行地址查詢測試          ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-    `);
+// 降級複製方案
+function fallbackCopyToClipboard(text, type) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        document.execCommand('copy');
+        showCopySuccess(type);
+    } catch (err) {
+        console.error('降級複製也失敗:', err);
+        showCopyError(type);
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+// 顯示複製成功提示
+function showCopySuccess(type) {
+    const notification = document.createElement('div');
+    notification.className = 'copy-notification success';
+    notification.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        <span>${type}已複製到剪貼板</span>
+    `;
+    document.body.appendChild(notification);
+    
+    // 動畫顯示
+    setTimeout(() => notification.classList.add('show'), 100);
+    
+    // 自動移除
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, 2000);
+}
+
+// 顯示複製失敗提示
+function showCopyError(type) {
+    const notification = document.createElement('div');
+    notification.className = 'copy-notification error';
+    notification.innerHTML = `
+        <i class="fas fa-exclamation-circle"></i>
+        <span>${type}複製失敗，請手動複製</span>
+    `;
+    document.body.appendChild(notification);
+    
+    // 動畫顯示
+    setTimeout(() => notification.classList.add('show'), 100);
+    
+    // 自動移除
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            if (document.body.contains(notification)) {
+                document.body.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// 打開Google Maps
+function openInGoogleMaps(lat, lng) {
+    const url = `https://www.google.com/maps?q=${lat},${lng}`;
+    window.open(url, '_blank');
+}
+
+// 初始化應用
+document.addEventListener('DOMContentLoaded', function() {
+    new MapCoordinateSystem();
 });
 
 // 添加一些實用的工具函數到全局作用域
