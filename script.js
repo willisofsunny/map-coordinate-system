@@ -32,7 +32,7 @@ class MapCoordinateSystem {
             const apiStatusElement = document.getElementById('api-status');
             if (apiStatusElement) {
                 apiStatusElement.style.display = 'inline-block';
-                this.log('🚀 Geocoding API 直接查詢模式已啟動');
+                this.log('🚀 系統已就緒');
                 
                 // 3秒後淡出動畫
                 setTimeout(() => {
@@ -49,12 +49,7 @@ class MapCoordinateSystem {
         this.showError(
             `無法找到地址"${address}"`,
             `
-            🎯 <strong>Geocoding API 查詢建議：</strong>
-            
-            📍 <strong>檢查API配置：</strong>
-            • 確認Geocoding API已在Google Cloud Console啟用
-            • 檢查API密鑰是否有效且無使用限制
-            • 確認專案已啟用計費（免費配額內無需付費）
+            🎯 <strong>地址查詢建議：</strong>
             
             📝 <strong>嘗試簡化地址：</strong>
             • ${address.replace(/\d+巷\d+弄\d+號.*$/, '')} (移除詳細門牌號)
@@ -65,19 +60,19 @@ class MapCoordinateSystem {
             • 台北101、總統府、台大醫院
             • 板橋車站、松山機場
             
-            💡 如果API配置正確，系統會自動嘗試簡化地址查詢
+            💡 系統會自動嘗試簡化地址查詢
             `
         );
     }
 
     /**
-     * Google Maps查詢失敗時的專用錯誤處理
+     * 地址查詢失敗時的錯誤處理
      */
     showGoogleMapsError(address) {
         this.showError(
-            `Geocoding API 無法找到地址"${address}"`,
+            `無法找到地址"${address}"`,
             `
-            🎯 <strong>Geocoding API 直接查詢建議：</strong>
+            🎯 <strong>地址查詢建議：</strong>
             
             📍 <strong>地址格式優化：</strong>
             • 完整格式：縣市 + 區 + 路段 + 號碼
@@ -108,35 +103,27 @@ class MapCoordinateSystem {
      * 顯示Google Maps歡迎消息
      */
     showGoogleMapsWelcome() {
+        // 簡化版本，移除API相關的複雜信息
         if (this.hasGoogleMapsApiKey()) {
             setTimeout(() => {
                 this.showMessage(
-                    '🎉 系統升級完成！',
+                    '🎉 系統就緒！',
                     `
                     <div style="text-align: left; margin: 20px 0;">
                         <h3 style="color: #4285f4; margin-bottom: 15px;">
-                            <i class="fab fa-google"></i> Geocoding API 直接查詢模式已啟動
+                            <i class="fas fa-map-marked-alt"></i> 地圖座標系統轉換工具
                         </h3>
                         <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0;">
                             <h4 style="color: #333; margin-bottom: 10px;">🚀 核心功能：</h4>
                             <ul style="margin-left: 20px; color: #555;">
-                                <li><strong>🎯 直接查詢：</strong>優先調用Geocoding API獲取座標</li>
-                                <li><strong>📍 ROOFTOP級精度：</strong>精確到建築物屋頂位置</li>
-                                <li><strong>🇹🇼 台灣專用：</strong>專門針對台灣地址優化配置</li>
-                                <li><strong>🔄 智能備用：</strong>失敗時自動啟用補間算法</li>
-                                <li><strong>⚡ 快速響應：</strong>直接獲取Google座標結果</li>
+                                <li><strong>📍 當前位置：</strong>獲取您的精確地理位置</li>
+                                <li><strong>🔍 地址查詢：</strong>輸入地址獲取座標信息</li>
+                                <li><strong>🔄 座標轉換：</strong>WGS84與BD09座標系統轉換</li>
+                                <li><strong>📋 一鍵複製：</strong>快速複製座標到剪貼板</li>
                             </ul>
                         </div>
-                        <div style="background: #e8f5e8; padding: 15px; border-radius: 8px; margin: 15px 0;">
-                            <h4 style="color: #28a745; margin-bottom: 10px;">📍 推薦測試地址：</h4>
-                            <div style="font-family: monospace; font-size: 0.9em; color: #555;">
-                                新北市新店區北宜路二段421巷2弄43號<br>
-                                台北市信義區信義路五段7號89樓<br>
-                                新北市板橋區縣民大道二段7號
-                            </div>
-                        </div>
                         <p style="color: #666; font-size: 0.9em; margin-top: 15px;">
-                            💡 現在可以測試之前無法精確定位的詳細地址了！
+                            💡 開始使用地圖座標轉換工具吧！
                         </p>
                     </div>
                     `,
@@ -248,6 +235,14 @@ class MapCoordinateSystem {
      */
     hideError() {
         this.elements.errorModal.classList.remove('show');
+    }
+
+    /**
+     * 顯示消息（簡化版本）
+     */
+    showMessage(title, message, type = 'info') {
+        // 簡化版本，直接使用showError顯示消息
+        this.showError(message);
     }
 
     /**
@@ -1779,9 +1774,6 @@ class MapCoordinateSystem {
                 </div>
                 
                 <div class="action-buttons">
-                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.wgs84.lng},${data.wgs84.lat}', 'WGS84座標')">
-                        <i class="fas fa-copy"></i> 複製 WGS84座標
-                    </button>
                     <button class="action-btn copy-btn" onclick="copyToClipboard('${data.bd09.lng},${data.bd09.lat}', 'BD09座標')">
                         <i class="fas fa-copy"></i> 複製 BD09座標
                     </button>
@@ -1801,20 +1793,13 @@ class MapCoordinateSystem {
      * @param {Object} data 搜索數據
      */
     displayAddressResult(data) {
-        let headerIcon = 'fab fa-google';
-        let headerText = 'Geocoding API 查詢結果';
+        let headerIcon = 'fas fa-search';
+        let headerText = '地址查詢結果';
         let addressInfo = '';
         let apiInfo = '';
-        let backupInfo = '';
         
-        if (data.wgs84.isBackup) {
-            backupInfo = `<div style=\"background:#fff3cd;border-left:4px solid #ffc107;padding:10px 15px;margin-bottom:10px;border-radius:6px;\"><strong>⚠️ 已自動切換到備用查詢</strong>（Google API限流/權限問題時自動降級）</div>`;
-        }
         // 處理原始地址與找到地址不同的情況（簡化查詢）
         if (data.wgs84.originalAddress && data.wgs84.originalAddress !== data.address) {
-            headerIcon = 'fas fa-search';
-            headerText = 'Geocoding API 簡化查詢結果';
-            
             addressInfo = `
                 <div style=\"background-color: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 15px; margin: 15px 0;\">
                     <div style=\"color: #1976d2; font-weight: bold; margin-bottom: 8px;\">📍 地址簡化查詢</div>
@@ -1829,35 +1814,10 @@ class MapCoordinateSystem {
             `;
         }
         
-        // 顯示簡化的API信息
-        if (data.wgs84.source) {
-            const confidenceColor = data.wgs84.confidence >= 0.9 ? '#28a745' : 
-                                  data.wgs84.confidence >= 0.7 ? '#ffc107' : '#dc3545';
-            const locationTypeText = this.getLocationTypeText(data.wgs84.locationType);
-            
-            apiInfo = `
-                <div style=\"background-color: #f8f9fa; border-left: 4px solid #4285f4; padding: 15px; margin: 15px 0; border-radius: 4px;\">
-                    <div style=\"font-weight: bold; color: #4285f4; margin-bottom: 10px;\">
-                        <i class=\"fab fa-google\"></i> ${data.wgs84.source}
-                    </div>
-                    <div style=\"display: flex; gap: 20px; flex-wrap: wrap;\">
-                        <div style=\"color: #666;\">
-                            <strong>定位類型：</strong>${locationTypeText}
-                        </div>
-                        <div style=\"color: ${confidenceColor};\">
-                            <strong>置信度：</strong>${(data.wgs84.confidence * 100).toFixed(0)}%
-                        </div>
-                    </div>
-                    ${data.wgs84.placeId ? `<div style=\"margin-top: 8px; color: #666; font-size: 0.9em;\"><strong>Place ID：</strong>${data.wgs84.placeId}</div>` : ''}
-                </div>
-            `;
-        }
-        
         const html = `
-            <div class=\"result-item\">${backupInfo}
+            <div class=\"result-item\">
                 <h3><i class=\"${headerIcon}\"></i> ${headerText}</h3>
                 ${addressInfo}
-                ${apiInfo}
                 
                 <div class=\"coordinate-info\">
                     <div class="coord-item">
@@ -1876,9 +1836,6 @@ class MapCoordinateSystem {
                 </div>
                 
                 <div class="action-buttons">
-                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.wgs84.lng},${data.wgs84.lat}', 'WGS84座標')">
-                        <i class="fas fa-copy"></i> 複製 WGS84座標
-                    </button>
                     <button class="action-btn copy-btn" onclick="copyToClipboard('${data.bd09.lng},${data.bd09.lat}', 'BD09座標')">
                         <i class="fas fa-copy"></i> 複製 BD09座標
                     </button>
@@ -2161,9 +2118,6 @@ class MapCoordinateSystem {
                 </div>
                 
                 <div class="action-buttons">
-                    <button class="action-btn copy-btn" onclick="copyToClipboard('${data.wgs84.lng},${data.wgs84.lat}', 'WGS84座標')">
-                        <i class="fas fa-copy"></i> 複製 WGS84座標
-                    </button>
                     <button class="action-btn copy-btn" onclick="copyToClipboard('${data.bd09.lng},${data.bd09.lat}', 'BD09座標')">
                         <i class="fas fa-copy"></i> 複製 BD09座標
                     </button>
